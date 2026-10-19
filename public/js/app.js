@@ -4,6 +4,9 @@
 const $ = (s) => document.querySelector(s);
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"];
 const POPULAR = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT","ADAUSDT","AVAXUSDT","LINKUSDT","PAXGUSDT","ARBUSDT","NEARUSDT","APTUSDT","OPUSDT"];
+// Forex majors/minors + metals (Yahoo feed) and popular US stocks — always in the search list
+const FOREX_LIST = ["EURUSD","GBPUSD","USDJPY","USDCHF","AUDUSD","USDCAD","NZDUSD","EURGBP","EURJPY","GBPJPY","EURAUD","EURCAD","GBPCHF","AUDJPY","CADJPY","CHFJPY","NZDJPY","AUDCAD","AUDCHF","EURCHF","GBPCAD","GBPAUD","XAUUSD","XAGUSD"];
+const STOCK_LIST = ["AAPL","TSLA","NVDA","MSFT","AMZN","META","GOOGL","GOOG","AMD","NFLX","AVGO","INTC","BA","DIS","PYPL","COIN","MSTR","PLTR","SOFI","NIO","BABA","TSM","JPM","V","WMT","XOM","PFE","KO","NKE","MRNA","ZM","SHOP","UBER","SNAP","RBLX","HOOD","DKNG","LCID","RIVN","F","GM","T","VZ","IBM","ORCL","CRM","ADBE","QCOM","TXN","SPY","QQQ","DIA","IWM"];
 
 const state = {
   user: null, symbol: "BTCUSDT", timeframe: "1h",
@@ -92,7 +95,8 @@ async function loadData() {
     $("#tickerInfo").textContent = `${state.symbol}  $${Number(last).toLocaleString()}  · REPLAY`;
   } else if (t && t.lastPrice) {
     const chg = t.priceChangePercent != null ? `  24h ${Number(t.priceChangePercent).toFixed(2)}%` : "";
-    $("#tickerInfo").textContent = `${state.symbol}  $${Number(t.lastPrice).toLocaleString()}${chg}  · ${t.source || ""}`;
+    const kindTag = j.kind ? ` · ${j.kind}` : "";
+    $("#tickerInfo").textContent = `${state.symbol}  $${Number(t.lastPrice).toLocaleString()}${chg}  · ${t.source || ""}${kindTag}`;
   }
   if (window.TGRisk) window.TGRisk.recalc(); // entry price moved -> resize the lot
   if (window.TGKZ) window.TGKZ.onData(); // killzone boxes / midnight line follow new data
@@ -735,9 +739,17 @@ async function boot() {
   }
   }); // end safeInit TGFootprints
 
-  // symbol datalist
+  // symbol datalist — POPULAR crypto first, then forex + stocks, then the full Binance list (500+ coins)
   const dl = $("#symList");
-  POPULAR.forEach((s) => { const o = document.createElement("option"); o.value = s; dl.appendChild(o); });
+  const seen = new Set();
+  const addOpt = (s) => { if (seen.has(s)) return; seen.add(s);
+    const o = document.createElement("option"); o.value = s; dl.appendChild(o); };
+  POPULAR.forEach(addOpt);
+  FOREX_LIST.forEach(addOpt);
+  STOCK_LIST.forEach(addOpt);
+  fetch("/api/market/symbols").then((r) => r.json()).then((j) => {
+    (j.symbols || []).forEach(addOpt);
+  }).catch(() => {});
 
   // timeframe buttons
   const tfb = $("#tfBar");

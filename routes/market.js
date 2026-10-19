@@ -36,6 +36,32 @@ router.get("/ticker", async (req, res) => {
   }
 });
 
+/* All tradable USDT spot symbols (511+ coins) for the symbol search.
+ * GET /api/market/symbols — cached 24h server-side. */
+let symbolsCache = { at: 0, list: [] };
+router.get("/symbols", async (req, res) => {
+  try {
+    if (Date.now() - symbolsCache.at < 24 * 3600 * 1000 && symbolsCache.list.length) {
+      return res.json({ count: symbolsCache.list.length, symbols: symbolsCache.list, cached: true });
+    }
+    const r = await fetch("https://data-api.binance.vision/api/v3/exchangeInfo",
+      { signal: AbortSignal.timeout(20000) });
+    if (!r.ok) throw new Error(`exchangeInfo ${r.status}`);
+    const j = await r.json();
+    const list = j.symbols
+      .filter((s) => s.status === "TRADING" && s.quoteAsset === "USDT" && s.isSpotTradingAllowed)
+      .map((s) => s.symbol)
+      .sort();
+    symbolsCache = { at: Date.now(), list };
+    res.json({ count: list.length, symbols: list, cached: false });
+  } catch (e) {
+    if (symbolsCache.list.length) {
+      return res.json({ count: symbolsCache.list.length, symbols: symbolsCache.list, cached: true, stale: true });
+    }
+    res.status(502).json({ error: "symbols_unavailable", detail: String(e.message).slice(0, 200) });
+  }
+});
+
 /* Order-book depth for the liquidity heatmap (public, no key).
  * GET /api/market/depth?symbol=BTCUSDT&limit=100
  * Spot first, USDⓈ-M futures fallback. Cached 10s server-side. */
