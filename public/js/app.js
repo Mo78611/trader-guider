@@ -39,8 +39,9 @@ async function saveState() {
 function initChart() {
   const el = $("#chart");
   state.chart = LightweightCharts.createChart(el, {
-    layout: { background: { color: "#131722" }, textColor: "#787b86", fontSize: 11 },
-    grid: { vertLines: { color: "#1e2534" }, horzLines: { color: "#1e2534" } },
+    layout: { background: { color: "#131722" }, textColor: "#787b86", fontSize: 11,
+      fontFamily: "-apple-system,BlinkMacSystemFont,'Trebuchet MS',Roboto,Ubuntu,sans-serif" },
+    grid: { vertLines: { color: "rgba(42, 46, 57, 0.5)" }, horzLines: { color: "rgba(42, 46, 57, 0.5)" } },
     rightPriceScale: { borderColor: "#2a2e39" },
     timeScale: { borderColor: "#2a2e39", timeVisible: true, secondsVisible: false },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },

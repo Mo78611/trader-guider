@@ -1,13 +1,13 @@
 :root{
-  /* TradingView-inspired premium dark palette (user rule 2026-10-19) */
-  --bg:#131722; --panel:#1c2330; --panel2:#2a2e39; --border:#2a2e39;
+  /* TradingView dark theme — exact values from TV's own shipped code (verified 2026-10-19) */
+  --bg:#131722; --panel:#1e222d; --panel2:#2a2e39; --border:#2a2e39;
   --text:#d1d4dc; --dim:#787b86; --gold:#d4a94e; --green:#26a69a; --red:#ef5350;
   --accent:#2962ff; /* TV blue: primary buttons / links / active states */
   --buy:#00e5a0; --sell:#ff4d6d; /* neon accents — BUY/SELL buttons only */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:14px;overflow-y:auto;overflow-x:hidden}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Trebuchet MS',Roboto,Ubuntu,sans-serif;font-size:14px;overflow-y:auto;overflow-x:hidden}
 a{color:var(--accent);text-decoration:none}
 
 /* top bar */

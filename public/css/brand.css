@@ -3,7 +3,7 @@
 
 :root{
   /* TV-like premium dark — single palette (wins over style.css :root) */
-  --bg:#131722; --bg2:#1c2330; --panel:rgba(28,35,48,.72); --panel-solid:#1c2330;
+  --bg:#131722; --bg2:#1e222d; --panel:rgba(28,35,48,.72); --panel-solid:#1e222d;
   --border:#2a2e39; --border-soft:#2a2e39;
   --text:#d1d4dc; --dim:#787b86;
   --gold:#d4a94e; --gold-hi:#f3d27a; --emerald:#26a69a; --emerald-deep:#0f3d39;
@@ -13,7 +13,7 @@
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--text);
-  font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,'Trebuchet MS',Roboto,Ubuntu,sans-serif;
   -webkit-font-smoothing:antialiased}
 
 /* ---------- animated logo mark ---------- */
