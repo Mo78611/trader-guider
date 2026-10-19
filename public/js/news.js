@@ -34,11 +34,18 @@ window.TGNews = (function () {
   function buildUI() {
     if (document.getElementById("newsBtn")) return;
     const topbar = document.querySelector(".topbar");
+    if (!topbar) return;
     const btn = document.createElement("button");
     btn.className = "link"; btn.id = "newsBtn"; btn.textContent = "📰 News";
     btn.title = "News radar + sentiment";
-    const hub = document.querySelector(".topbar button.link");
-    topbar.insertBefore(btn, hub);
+    // Robust insertion: the ◈ Methodologies menu injects its own .link button
+    // into the topbar BEFORE this runs, so querySelector(".topbar button.link")
+    // may return a NESTED button (not a direct child) -> insertBefore would throw
+    // and kill the whole boot (empty chart). Insert before #replayBtn only when
+    // it is a direct child; otherwise append safely.
+    const ref = document.getElementById("replayBtn");
+    if (ref && ref.parentNode === topbar) topbar.insertBefore(btn, ref);
+    else topbar.appendChild(btn);
     btn.onclick = (e) => { e.stopPropagation(); toggle(); };
     document.addEventListener("click", (e) => {
       const p = document.getElementById("newsPanel");

@@ -48,16 +48,6 @@ app.use("/api/smt", require("./routes/smt"));
 app.use("/api/lab", require("./routes/lab"));
 app.use("/api/blacksite", require("./routes/blacksite"));
 
-// TEMPORARY debug trap: collect client-side boot errors from live browsers
-const _dbgErrors = [];
-app.post("/api/debug/error", (req, res) => {
-  _dbgErrors.push({ at: new Date().toISOString(), ...req.body });
-  if (_dbgErrors.length > 50) _dbgErrors.shift();
-  console.error("[CLIENT-ERROR]", req.body && req.body.type, req.body && req.body.msg);
-  res.json({ ok: true });
-});
-app.get("/api/debug/errors", (_req, res) => res.json({ errors: _dbgErrors }));
-
 
 app.get("/api/health", async (_req, res) => {
   let database = "unknown";

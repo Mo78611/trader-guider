@@ -610,10 +610,21 @@ async function boot() {
   state.user = me.user;
   $("#userName").textContent = me.user.name || me.user.email;
 
+  // Hard rule: an optional module must NEVER kill the chart. Every module
+  // init below runs inside safeInit — a UI bug in one widget (e.g. the
+  // 2026-10-19 news-button insertBefore crash that blanked the whole chart)
+  // is logged and skipped, boot continues to loadData().
+  const safeInit = (name, fn) => {
+    try { fn(); }
+    catch (e) {
+      console.error("[boot] module init failed:", name, e && e.message);
+    }
+  };
+
   initChart();
-  if (window.TGDebug) window.TGDebug.ping("after-initChart");
 
   // methodology & signal engine (dropdown, settings, signal panel)
+  safeInit("TGMethodUI", () => {
   if (window.TGMethodUI) {
     window.TGMethodUI.init({
       chart: state.chart,
@@ -624,8 +635,10 @@ async function boot() {
       onChange: scheduleSave,
     });
   }
+  });
 
   // ◤ THE BLACKSITE ◢ — exclusive experimental section (own drawer, own toggles)
+  safeInit("TGBlacksit", () => {
   if (window.TGBlacksit) {
     window.TGBlacksit.init({
       chart: state.chart,
@@ -634,24 +647,30 @@ async function boot() {
       getTimeframe: () => state.timeframe,
     });
   }
+  });
 
   // live strategy estimator (reads ticked methodologies, shows freq/win/strictness)
+  safeInit("TGEstimator", () => {
   if (window.TGEstimator) {
     window.TGEstimator.init({
       getState: () => (window.TGMethodUI ? window.TGMethodUI.getState() : null),
     });
   }
+  });
 
   // news radar + sentiment widget
+  safeInit("TGNews", () => {
   if (window.TGNews) {
     window.TGNews.init({
       getSymbol: () => state.symbol,
       getTrend: currentTrend,
     });
   }
+  });
 
   // institutional batch: SMT scanner, liquidity heatmap, killzone sessions,
   // tilt-lock blocker, multi-account copier
+  safeInit("TGSMT", () => {
   if (window.TGSMT) {
     window.TGSMT.init({
       chart: state.chart,
@@ -660,6 +679,8 @@ async function boot() {
       getCandles: () => viewCandles(),
     });
   }
+  });
+  safeInit("TGLiq", () => {
   if (window.TGLiq) {
     window.TGLiq.init({
       chart: state.chart,
@@ -667,6 +688,8 @@ async function boot() {
       getSymbol: () => state.symbol,
     });
   }
+  });
+  safeInit("TGKZ", () => {
   if (window.TGKZ) {
     window.TGKZ.init({
       chart: state.chart,
@@ -674,22 +697,28 @@ async function boot() {
       getCandles: () => viewCandles(),
     });
   }
-  if (window.TGTilt) window.TGTilt.init();
-  if (window.TGCopier) window.TGCopier.init();
+  });
+  safeInit("TGTilt", () => { if (window.TGTilt) window.TGTilt.init(); });
+  safeInit("TGCopier", () => { if (window.TGCopier) window.TGCopier.init(); });
 
   // tinkerer batch: displacement radar, sweep magnets, footprints
+  safeInit("TGDisplacement", () => {
   if (window.TGDisplacement) {
     window.TGDisplacement.init({
       chart: state.chart,
       getCandles: () => viewCandles(),
     });
   }
+  });
+  safeInit("TGMagnets", () => {
   if (window.TGMagnets) {
     window.TGMagnets.init({
       chart: state.chart,
       getCandles: () => viewCandles(),
     });
   }
+  });
+  safeInit("TGFootprints", () => {
   if (window.TGFootprints) {
     window.TGFootprints.init({
       getSymbol: () => state.symbol,
@@ -704,6 +733,7 @@ async function boot() {
       },
     });
   }
+  }); // end safeInit TGFootprints
 
   // symbol datalist
   const dl = $("#symList");
@@ -737,10 +767,8 @@ async function boot() {
   } catch (_e) {}
 
   $("#symInput").value = state.symbol;
-  if (window.TGDebug) window.TGDebug.ping("before-loadData");
   syncTf();
   await loadData();
-  if (window.TGDebug) window.TGDebug.ping("after-loadData");
 
   // toolbar
   document.querySelectorAll(".tool").forEach((el) => {
@@ -776,14 +804,15 @@ async function boot() {
   };
 
   // MTF heatmap + auto trade manager
-  if (window.TGMTF) {
-    window.TGMTF.init({ getSymbol: () => state.symbol });
-  }
-  if (window.TGTradeMgr) {
-    window.TGTradeMgr.init();
-  }
+  safeInit("TGMTF", () => {
+    if (window.TGMTF) window.TGMTF.init({ getSymbol: () => state.symbol });
+  });
+  safeInit("TGTradeMgr", () => {
+    if (window.TGTradeMgr) window.TGTradeMgr.init();
+  });
 
   // auto-lot risk calculator (reads live price as entry for SL distance)
+  safeInit("TGRisk", () => {
   if (window.TGRisk) {
     window.TGRisk.init({
       getEntry: () => { const C = viewCandles(); return C.length ? C[C.length - 1].close : 0; },
@@ -791,8 +820,10 @@ async function boot() {
       getTarget: () => $("#execTarget").value === "mt5" ? "mt5" : "binance",
     });
   }
+  });
 
   // bar replay / backtest mode
+  safeInit("TGReplay", () => {
   if (window.TGReplay) {
     window.TGReplay.init({
       getFull: () => state.candles,
@@ -800,11 +831,14 @@ async function boot() {
       getHint: () => $("#chartHint"),
     });
   }
+  });
 
   // analysis
   $("#saveAnalysisBtn").onclick = openAnalysisModal;
   $("#doSaveAnalysis").onclick = saveAnalysis;
-  if (window.TGVoice) window.TGVoice.init({ getSymbol: () => state.symbol });
+  safeInit("TGVoice", () => {
+    if (window.TGVoice) window.TGVoice.init({ getSymbol: () => state.symbol });
+  });
 
   // user
   $("#logoutBtn").onclick = async () => { await fetch("/api/auth/logout", { method: "POST" }); location.href = "/login.html"; };
