@@ -77,8 +77,13 @@ window.TGTradeMgr = (function () {
   }
 
   async function closeTrade(id) {
-    try { await api(`/${id}/close`, {}); } catch (_e) {}
+    // pass the last known price so the server can score realized P/L (tilt-lock)
+    const t = S.trades.find((x) => x.id === id);
+    const cached = t ? S.prices[t.symbol] : null;
+    try { await api(`/${id}/close`, cached && cached.p > 0 ? { exit_price: cached.p } : {}); } catch (_e) {}
     await load();
+    // a fresh loss may have armed the tilt-lock — refresh its banner immediately
+    try { if (window.TGTilt) window.TGTilt.refresh(); } catch (_e2) {}
   }
 
   async function setAuto(id, kind, on) {

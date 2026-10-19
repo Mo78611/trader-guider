@@ -65,6 +65,40 @@ def guard_live():
     return True, None
 
 
+def _use_account(acct):
+    """Multi-account copier support.
+
+    acct: None (use the terminal's current login) or
+          {"server":..., "account_id":..., "password":...}.
+    Re-logs-in when the requested account differs from the current one.
+    The password is never logged and is dropped from memory immediately.
+    Returns (ok, error_response_or_None).
+    """
+    if not acct:
+        return True, None
+    try:
+        server = str(acct.get("server", "")).strip()
+        login = int(acct.get("account_id", 0) or 0)
+        password = str(acct.get("password", ""))
+    except (TypeError, ValueError):
+        return False, (jsonify({"error": "bad_account_context"}), 400)
+    if not server or not login or not password:
+        return False, (jsonify({"error": "account_context_incomplete"}), 400)
+    try:
+        cur = mt5.account_info()
+        if cur is not None and cur.login == login and cur.server == server:
+            return True, None  # already on this account
+        ok = mt5.login(login, password=password, server=server)
+        if not ok:
+            return False, (jsonify({"error": "account_login_failed",
+                                    "detail": str(mt5.last_error())}), 401)
+        return True, None
+    finally:
+        # never keep the secret around
+        password = None
+        acct = None
+
+
 @app.get("/api/mt5/health")
 def health():
     return jsonify({
@@ -219,6 +253,10 @@ def order():
     ok, err = guard_live()
     if not ok:
         return err
+    # multi-account copier: switch to the requested account first
+    ok, err = _use_account(body.get("account"))
+    if not ok:
+        return err
     req, req_err = _fill_order_request(symbol, action, volume, sl, tp)
     if req_err:
         return jsonify({"error": "invalid_order", "detail": req_err}), 400
@@ -245,6 +283,9 @@ def close():
         return jsonify({"dryRun": True, "ticket": ticket,
                         "note": "DRY_RUN=true — nothing sent to broker."})
     ok, err = guard_live()
+    if not ok:
+        return err
+    ok, err = _use_account(body.get("account"))
     if not ok:
         return err
     poss = mt5.positions_get(ticket=ticket)
@@ -284,6 +325,9 @@ def modify():
     ok, err = guard_live()
     if not ok:
         return err
+    ok, err = _use_account(body.get("account"))
+    if not ok:
+        return err
     poss = mt5.positions_get(ticket=ticket)
     if not poss:
         return jsonify({"error": "position_not_found"}), 404
@@ -316,6 +360,9 @@ def close_partial():
         return jsonify({"dryRun": True, "ticket": ticket, "volume": volume,
                         "note": "DRY_RUN=true — nothing sent to broker."})
     ok, err = guard_live()
+    if not ok:
+        return err
+    ok, err = _use_account(body.get("account"))
     if not ok:
         return err
     poss = mt5.positions_get(ticket=ticket)

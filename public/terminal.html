@@ -37,35 +37,40 @@
 </div>
 
 <div class="workspace">
-  <div class="toolbar">
-    <button class="tool active" data-tool="cursor" title="Cursor">➤</button>
-    <button class="tool" data-tool="trendline" title="Trendline">／</button>
-    <button class="tool" data-tool="hline" title="Horizontal line">─</button>
-    <button class="tool" data-tool="fib" title="Fibonacci retracement">≋</button>
-    <button class="tool" data-tool="rect" title="Rectangle">▭</button>
-    <button class="tool" data-tool="channel" title="Parallel channel">⫽</button>
-    <button class="tool" data-tool="vline" title="Vertical line">│</button>
-    <button class="tool" data-tool="text" title="Text label">T</button>
-    <button class="tool" data-tool="eraser" title="Eraser">⌫</button>
-    <button class="tool" data-tool="clear" title="Clear all drawings">✕</button>
-  </div>
+  <!-- CHART ON TOP, full width (user rule 2026-10-19: side-by-side retired everywhere) -->
+  <div class="chart-row">
+    <div class="toolbar">
+      <button class="tool active" data-tool="cursor" title="Cursor">➤</button>
+      <button class="tool" data-tool="trendline" title="Trendline">／</button>
+      <button class="tool" data-tool="hline" title="Horizontal line">─</button>
+      <button class="tool" data-tool="fib" title="Fibonacci retracement">≋</button>
+      <button class="tool" data-tool="rect" title="Rectangle">▭</button>
+      <button class="tool" data-tool="channel" title="Parallel channel">⫽</button>
+      <button class="tool" data-tool="vline" title="Vertical line">│</button>
+      <button class="tool" data-tool="text" title="Text label">T</button>
+      <button class="tool" data-tool="eraser" title="Eraser">⌫</button>
+      <button class="tool" data-tool="clear" title="Clear all drawings">✕</button>
+    </div>
 
-  <div class="main">
-    <div id="chart"></div>
-    <div class="chart-hint" id="chartHint">Loading…</div>
-    <div class="sent-badge" id="sentBadge" style="display:none"></div>
-    <div class="mtf" id="mtfWidget" title="Multi-timeframe trend">
-      <div class="mtf-head" id="mtfHead">MTF <span class="chev" id="mtfChev">▾</span></div>
-      <div class="mtf-rows" id="mtfRows">
-        <div class="mtf-row"><span class="tf">15m</span><span class="mtf-badge flat" id="mtf-15m">…</span></div>
-        <div class="mtf-row"><span class="tf">1H</span><span class="mtf-badge flat" id="mtf-1h">…</span></div>
-        <div class="mtf-row"><span class="tf">4H</span><span class="mtf-badge flat" id="mtf-4h">…</span></div>
-        <div class="mtf-row"><span class="tf">1D</span><span class="mtf-badge flat" id="mtf-1d">…</span></div>
+    <div class="main">
+      <div id="chart"></div>
+      <div class="chart-hint" id="chartHint">Loading…</div>
+      <div class="sent-badge" id="sentBadge" style="display:none"></div>
+      <div class="mtf" id="mtfWidget" title="Multi-timeframe trend">
+        <div class="mtf-head" id="mtfHead">MTF <span class="chev" id="mtfChev">▾</span></div>
+        <div class="mtf-rows" id="mtfRows">
+          <div class="mtf-row"><span class="tf">15m</span><span class="mtf-badge flat" id="mtf-15m">…</span></div>
+          <div class="mtf-row"><span class="tf">1H</span><span class="mtf-badge flat" id="mtf-1h">…</span></div>
+          <div class="mtf-row"><span class="tf">4H</span><span class="mtf-badge flat" id="mtf-4h">…</span></div>
+          <div class="mtf-row"><span class="tf">1D</span><span class="mtf-badge flat" id="mtf-1d">…</span></div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="side">
+  <!-- ALL PANELS BELOW the chart, in user-specified order:
+       1 execution, 2 signals (injected by method-ui.js), 3 positions, 4 indicators, 5 hub -->
+  <div class="panels">
     <div class="sec" id="execSec">
       <h3>One-click execution</h3>
       <div class="row">
@@ -240,6 +245,11 @@
 <script src="/js/riskcalc.js"></script>
 <script src="/js/replay.js"></script>
 <script src="/js/voice.js"></script>
+<script src="/js/smt.js"></script>
+<script src="/js/liquidity.js"></script>
+<script src="/js/killzones.js"></script>
+<script src="/js/tiltlock.js"></script>
+<script src="/js/copier.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

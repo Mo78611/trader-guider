@@ -84,7 +84,23 @@ window.TGMethodUI = (function () {
         badge: "Sentiment Bias Badge",
       },
     },
+    smt: {
+      label: "SMT Divergence", color: "#f0b429",
+      settings: {
+        tags: "⚠️ Divergence tags on chart",
+        refSymbol: "Reference symbol",
+      },
+    },
+    kzones: {
+      label: "Killzone Sessions", color: "#8b94a7",
+      settings: {
+        boxes: "Session background boxes",
+        midnight: "True midnight open line",
+      },
+    },
   };
+  // settings keys whose value is a string, not a boolean (persisted as-is)
+  const STR_SETTINGS = { smt: { refSymbol: "BTCUSDT" } };
   const EVAL_METHODS = ["ict", "smc", "vsa", "priceaction", "trendsr"]; // can emit signals
   const SERIES_CAP = 140;
   const TF_SEC = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "4h": 14400, "1d": 86400, "1w": 604800 };
@@ -104,7 +120,11 @@ window.TGMethodUI = (function () {
     const o = {};
     for (const k of Object.keys(METHODS)) {
       o[k] = { enabled: false, settings: {} };
-      for (const sk of Object.keys(METHODS[k].settings)) o[k].settings[sk] = true;
+      for (const sk of Object.keys(METHODS[k].settings)) {
+        o[k].settings[sk] = (STR_SETTINGS[k] && sk in STR_SETTINGS[k])
+          ? STR_SETTINGS[k][sk]
+          : true;
+      }
     }
     return o;
   }
@@ -605,9 +625,18 @@ window.TGMethodUI = (function () {
     const rc = newRC();
     for (const key of Object.keys(METHODS)) {
       const st = S.methods[key];
-      if (!st || !st.enabled || key === "sentiment") continue;
+      if (!st || !st.enabled || key === "sentiment" || key === "smt" || key === "kzones") continue;
       renderMethod(key, st, ctx, rc, t0, t1, lo, hi);
     }
+    // overlay modules manage their own rendering (async data / HTML overlays)
+    try {
+      const smtSt = S.methods.smt;
+      if (window.TGSMT) window.TGSMT.apply(!!(smtSt && smtSt.enabled), smtSt ? smtSt.settings : {});
+    } catch (_e) {}
+    try {
+      const kzSt = S.methods.kzones;
+      if (window.TGKZ) window.TGKZ.apply(!!(kzSt && kzSt.enabled), kzSt ? kzSt.settings : {});
+    } catch (_e) {}
     // sentiment & news zones (own async data path)
     try { renderSentiment(rc, t0, t1, lo, hi); } catch (_e) {}
     // signal (drawn into the same render context)
@@ -635,7 +664,11 @@ window.TGMethodUI = (function () {
     for (const k of Object.keys(METHODS)) {
       o[k] = { enabled: !!(S.methods[k] && S.methods[k].enabled), settings: {} };
       for (const sk of Object.keys(METHODS[k].settings)) {
-        o[k].settings[sk] = !!(S.methods[k] && S.methods[k].settings && S.methods[k].settings[sk]);
+        const v = S.methods[k] && S.methods[k].settings ? S.methods[k].settings[sk] : undefined;
+        // preserve strings (e.g. refSymbol); coerce everything else to boolean
+        o[k].settings[sk] = (STR_SETTINGS[k] && sk in STR_SETTINGS[k])
+          ? String(v == null ? STR_SETTINGS[k][sk] : v).slice(0, 20)
+          : !!v;
       }
     }
     return o;
@@ -649,7 +682,9 @@ window.TGMethodUI = (function () {
           S.methods[k].enabled = !!saved[k].enabled;
           for (const sk of Object.keys(METHODS[k].settings)) {
             if (saved[k].settings && sk in saved[k].settings) {
-              S.methods[k].settings[sk] = !!saved[k].settings[sk];
+              S.methods[k].settings[sk] = (STR_SETTINGS[k] && sk in STR_SETTINGS[k])
+                ? String(saved[k].settings[sk]).slice(0, 20)
+                : !!saved[k].settings[sk];
             }
           }
         }
@@ -725,20 +760,41 @@ window.TGMethodUI = (function () {
     const body = document.getElementById("mmBody");
     body.innerHTML = "";
     for (const sk of Object.keys(M.settings)) {
+      const isStr = STR_SETTINGS[key] && sk in STR_SETTINGS[key];
       const row = document.createElement("div");
       row.className = "method-row";
-      const cb = document.createElement("input");
-      cb.type = "checkbox"; cb.checked = !!st.settings[sk];
-      cb.onchange = () => {
-        st.settings[sk] = cb.checked;
-        renderAll(); // instant: uses cached detection
-        if (S.onChange) S.onChange();
-      };
-      const lab = document.createElement("span");
-      lab.textContent = M.settings[sk];
-      lab.style.flex = "1";
-      lab.onclick = () => { cb.checked = !cb.checked; cb.onchange(); };
-      row.appendChild(cb); row.appendChild(lab);
+      if (isStr) {
+        // string setting (e.g. SMT reference symbol) -> text input
+        const lab = document.createElement("span");
+        lab.textContent = M.settings[sk];
+        lab.style.flex = "1";
+        const inp = document.createElement("input");
+        inp.type = "text"; inp.value = st.settings[sk] || STR_SETTINGS[key][sk];
+        inp.placeholder = STR_SETTINGS[key][sk];
+        inp.style.maxWidth = "120px";
+        inp.spellcheck = false;
+        inp.onchange = () => {
+          st.settings[sk] = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20) ||
+            STR_SETTINGS[key][sk];
+          inp.value = st.settings[sk];
+          renderAll();
+          if (S.onChange) S.onChange();
+        };
+        row.appendChild(lab); row.appendChild(inp);
+      } else {
+        const cb = document.createElement("input");
+        cb.type = "checkbox"; cb.checked = !!st.settings[sk];
+        cb.onchange = () => {
+          st.settings[sk] = cb.checked;
+          renderAll(); // instant: uses cached detection
+          if (S.onChange) S.onChange();
+        };
+        const lab = document.createElement("span");
+        lab.textContent = M.settings[sk];
+        lab.style.flex = "1";
+        lab.onclick = () => { cb.checked = !cb.checked; cb.onchange(); };
+        row.appendChild(cb); row.appendChild(lab);
+      }
       body.appendChild(row);
     }
     document.getElementById("methodModal").classList.add("open");
@@ -746,13 +802,22 @@ window.TGMethodUI = (function () {
 
   /* ---------------- UI: signal panel ---------------- */
   function buildSignalPanel() {
-    const side = document.querySelector(".side");
-    if (!side || document.getElementById("sigSec")) return;
+    // Layout (user rule 2026-10-19): chart on top, panels below in order
+    // 1 execution, 2 signals, 3 positions, 4 indicators, 5 hub.
+    const panels = document.querySelector(".panels");
+    if (!panels || document.getElementById("sigSec")) return;
     const sec = document.createElement("div");
     sec.className = "sec"; sec.id = "sigSec";
     sec.innerHTML = `<h3>Signals <button class="btn" id="sigRefresh" style="padding:3px 8px;font-size:11px" title="Re-evaluate now">↻</button></h3>
       <div id="sigBody"><div style="color:var(--dim);font-size:12px">Enable a methodology to generate signals.</div></div>`;
-    side.prepend(sec);
+    const exec = document.getElementById("execSec");
+    if (exec && exec.parentNode === panels && exec.nextSibling) {
+      panels.insertBefore(sec, exec.nextSibling);
+    } else if (exec && exec.parentNode === panels) {
+      panels.appendChild(sec);
+    } else {
+      panels.prepend(sec);
+    }
     document.getElementById("sigRefresh").onclick = () => { invalidateCache(); renderAll(); };
   }
 

@@ -2,11 +2,12 @@
    Gold/emerald on deep dark. Glassmorphism, animated logo mark, hero canvas. */
 
 :root{
-  --bg:#0b0e14; --bg2:#0e1320; --panel:rgba(17,22,31,.72); --panel-solid:#11161f;
-  --border:rgba(212,169,78,.16); --border-soft:#232c40;
-  --text:#eef1f7; --dim:#9aa3b5;
-  --gold:#d4a94e; --gold-hi:#f3d27a; --emerald:#26d3a0; --emerald-deep:#0f3d39;
-  --red:#ef5350;
+  /* TV-like premium dark — single palette (wins over style.css :root) */
+  --bg:#131722; --bg2:#1c2330; --panel:rgba(28,35,48,.72); --panel-solid:#1c2330;
+  --border:#2a2e39; --border-soft:#2a2e39;
+  --text:#d1d4dc; --dim:#787b86;
+  --gold:#d4a94e; --gold-hi:#f3d27a; --emerald:#26a69a; --emerald-deep:#0f3d39;
+  --red:#ef5350; --accent:#2962ff;
 }
 
 *{box-sizing:border-box}

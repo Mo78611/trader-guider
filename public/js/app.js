@@ -36,10 +36,10 @@ async function saveState() {
 function initChart() {
   const el = $("#chart");
   state.chart = LightweightCharts.createChart(el, {
-    layout: { background: { color: "#0b0e14" }, textColor: "#8b94a7", fontSize: 11 },
-    grid: { vertLines: { color: "#161c2a" }, horzLines: { color: "#161c2a" } },
-    rightPriceScale: { borderColor: "#232c40" },
-    timeScale: { borderColor: "#232c40", timeVisible: true, secondsVisible: false },
+    layout: { background: { color: "#131722" }, textColor: "#787b86", fontSize: 11 },
+    grid: { vertLines: { color: "#1e2534" }, horzLines: { color: "#1e2534" } },
+    rightPriceScale: { borderColor: "#2a2e39" },
+    timeScale: { borderColor: "#2a2e39", timeVisible: true, secondsVisible: false },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
   });
   state.chart.priceScale("right").applyOptions({ scaleMargins: { top: 0.06, bottom: 0.30 } });
@@ -95,6 +95,7 @@ async function loadData() {
     $("#tickerInfo").textContent = `${state.symbol}  $${Number(t.lastPrice).toLocaleString()}${chg}  · ${t.source || ""}`;
   }
   if (window.TGRisk) window.TGRisk.recalc(); // entry price moved -> resize the lot
+  if (window.TGKZ) window.TGKZ.onData(); // killzone boxes / midnight line follow new data
 }
 
 function setHint(t) { const h = $("#chartHint"); if (h) h.textContent = t; }
@@ -439,6 +440,13 @@ async function connectMt5() {
 async function oneClick(action) {
   try { if (navigator.vibrate) navigator.vibrate(15); } catch (_e) {} // haptic tap
   const target = $("#execTarget").value;
+  const line = $("#execStatus");
+  // TILT-LOCK: frozen panel blocks here too (server also returns 423).
+  if (window.TGTilt && window.TGTilt.isLocked()) {
+    line.className = "status-line err";
+    line.textContent = "🔒 Tilt-Lock active — trading frozen to protect capital. See 🛡 Tilt-Lock.";
+    return;
+  }
   const sl = parseFloat($("#execSL").value) || 0;
   const tp = parseFloat($("#execTP").value) || 0;
   // Auto-lot calculator: when Auto lot is on, volume comes from risk % × SL distance.
@@ -447,31 +455,48 @@ async function oneClick(action) {
     : (parseFloat($("#execVol").value) || 0.01);
   const venue = binanceVenue();
   const isMainnet = venue && venue.endsWith("_main");
+  // Trade copier: fan out to selected slave accounts.
+  const copyN = window.TGCopier ? window.TGCopier.copyCount(target === "mt5" ? "mt5" : "binance") : 0;
+  const copySuffix = copyN > 0 ? ` (+ copy to ${copyN} account${copyN > 1 ? "s" : ""})` : "";
 
   // safety confirmations
   if (isMainnet) {
     if (!confirm("⚠ REAL MONEY order on Binance MAINNET — confirm?")) return;
   } else if (target === "mt5") {
-    if (!confirm(`Send ${action.toUpperCase()} ${( $("#mt5Sym").value.trim() || mt5Symbol(state.symbol))} via MT5 bridge?`)) return;
+    if (!confirm(`Send ${action.toUpperCase()} ${( $("#mt5Sym").value.trim() || mt5Symbol(state.symbol))} via MT5 bridge?${copySuffix}`)) return;
+  } else if (copyN > 0) {
+    if (!confirm(`Send ${action.toUpperCase()} ${state.symbol} on ${venue}?${copySuffix}`)) return;
   }
 
   const body = target === "mt5"
     ? { target, action, symbol: $("#mt5Sym").value.trim() || mt5Symbol(state.symbol), volume: vol, sl, tp }
     : { target, action, symbol: state.symbol, quantity: vol, venue };
   body.target = target === "mt5" ? "mt5" : "binance";
-  const line = $("#execStatus");
+  if (copyN > 0) body.copy = true;
   line.className = "status-line"; line.textContent = "Sending…";
   try {
-    const j = await fetch("/api/execute", {
+    const r = await fetch("/api/execute", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    }).then((r) => r.json());
-    if (j.error) { line.className = "status-line err"; line.textContent = "Error: " + (j.detail || j.error); }
+    });
+    const j = await r.json();
+    if (j.error) {
+      line.className = "status-line err";
+      if (r.status === 423 || j.error === "tilt_locked") {
+        line.textContent = `🔒 Tilt-Lock: ${j.detail || "trading frozen"}`;
+        if (window.TGTilt) window.TGTilt.refresh();
+      } else {
+        line.textContent = "Error: " + (j.detail || j.error);
+      }
+    }
     else {
       line.className = "status-line okk";
       const ticket = (j.bridge && (j.bridge.ticket || j.bridge.deal)) || (j.result && j.result.orderId);
+      const copies = Array.isArray(j.copies) ? j.copies : [];
+      const okCopies = copies.filter((c) => c.ok || c.dryRun).length;
+      const copyTxt = copies.length ? ` · copies ${okCopies}/${copies.length} ok` : "";
       line.textContent = j.dryRun
-        ? `Dry-run logged ✓ (${action.toUpperCase()} ${body.symbol}) — tracked below`
-        : `Sent ✓ ${ticket ? "ticket: " + ticket : ""} — tracked below`;
+        ? `Dry-run logged ✓ (${action.toUpperCase()} ${body.symbol})${copyTxt} — tracked below`
+        : `Sent ✓ ${ticket ? "ticket: " + ticket : ""}${copyTxt} — tracked below`;
       // register with the Auto Trade Manager
       if (window.TGTradeMgr) {
         let lastPrice = 0;
@@ -605,6 +630,33 @@ async function boot() {
     });
   }
 
+  // institutional batch: SMT scanner, liquidity heatmap, killzone sessions,
+  // tilt-lock blocker, multi-account copier
+  if (window.TGSMT) {
+    window.TGSMT.init({
+      chart: state.chart,
+      getSymbol: () => state.symbol,
+      getTimeframe: () => state.timeframe,
+      getCandles: () => viewCandles(),
+    });
+  }
+  if (window.TGLiq) {
+    window.TGLiq.init({
+      chart: state.chart,
+      candleSeries: state.candleSeries,
+      getSymbol: () => state.symbol,
+    });
+  }
+  if (window.TGKZ) {
+    window.TGKZ.init({
+      chart: state.chart,
+      candleSeries: state.candleSeries,
+      getCandles: () => viewCandles(),
+    });
+  }
+  if (window.TGTilt) window.TGTilt.init();
+  if (window.TGCopier) window.TGCopier.init();
+
   // symbol datalist
   const dl = $("#symList");
   POPULAR.forEach((s) => { const o = document.createElement("option"); o.value = s; dl.appendChild(o); });
@@ -617,6 +669,7 @@ async function boot() {
     b.onclick = () => {
       if (window.TGReplay && window.TGReplay.active()) window.TGReplay.exit();
       state.timeframe = t; syncTf(); loadData();
+      if (window.TGSMT) window.TGSMT.onSymbolChange(); // re-scan on new timeframe
     };
     tfb.appendChild(b);
   });
@@ -716,6 +769,8 @@ async function boot() {
     if (v) {
       if (window.TGReplay && window.TGReplay.active()) window.TGReplay.exit();
       state.symbol = v; loadData(); if (window.TGMTF) window.TGMTF.onSymbolChange(); if (window.TGNews) window.TGNews.onSymbolChange();
+      if (window.TGSMT) window.TGSMT.onSymbolChange();
+      if (window.TGLiq) window.TGLiq.onSymbolChange();
     }
   });
 

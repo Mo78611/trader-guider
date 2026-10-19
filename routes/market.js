@@ -36,4 +36,80 @@ router.get("/ticker", async (req, res) => {
   }
 });
 
+/* Order-book depth for the liquidity heatmap (public, no key).
+ * GET /api/market/depth?symbol=BTCUSDT&limit=100
+ * Spot first, USDⓈ-M futures fallback. Cached 10s server-side. */
+const depthCache = new Map(); // symbol -> {at, data}
+async function fetchDepth(symbol, limit) {
+  const key = symbol;
+  const hit = depthCache.get(key);
+  if (hit && Date.now() - hit.at < 10000) return hit.data;
+  const urls = [
+    // data-api.binance.vision is the geo-unrestricted mirror of the spot API
+    `https://data-api.binance.vision/api/v3/depth?symbol=${symbol}&limit=${limit}`,
+    `https://api.binance.com/api/v3/depth?symbol=${symbol}&limit=${limit}`,
+    `https://fapi.binance.com/fapi/v1/depth?symbol=${symbol}&limit=${limit}`,
+  ];
+  let lastErr = null;
+  for (const u of urls) {
+    try {
+      const r = await fetch(u, { signal: AbortSignal.timeout(10000) });
+      if (!r.ok) {
+        // surface Binance's error code (e.g. -1121 invalid symbol) for mapping
+        let bodyTxt = "";
+        try { bodyTxt = await r.text(); } catch (_e) {}
+        // -1121 = invalid symbol: fail fast, don't try other hosts
+        if (bodyTxt.includes("-1121") || bodyTxt.includes("Invalid symbol")) {
+          const e = new Error("depth: Invalid symbol (-1121)");
+          e.invalidSymbol = true;
+          throw e;
+        }
+        lastErr = new Error(`depth ${r.status} ${bodyTxt.slice(0, 120)}`);
+        continue;
+      }
+      const j = await r.json();
+      if (j.code && j.code !== 0) {
+        // -1121 = invalid symbol: fail fast with 400
+        if (j.code === -1121 || String(j.msg || "").includes("Invalid symbol")) {
+          const e = new Error("depth: Invalid symbol (-1121)");
+          e.invalidSymbol = true;
+          throw e;
+        }
+        lastErr = new Error(`depth: ${j.msg || j.code}`);
+        continue;
+      }
+      const data = {
+        symbol,
+        lastUpdateId: j.lastUpdateId,
+        bids: (j.bids || []).map(([p, q]) => [parseFloat(p), parseFloat(q)]).filter(([p, q]) => p > 0 && q > 0),
+        asks: (j.asks || []).map(([p, q]) => [parseFloat(p), parseFloat(q)]).filter(([p, q]) => p > 0 && q > 0),
+        source: u.includes("fapi") ? "binance-futures" : "binance-spot",
+      };
+      depthCache.set(key, { at: Date.now(), data });
+      return data;
+    } catch (e) {
+      if (e.invalidSymbol) throw e; // fail-fast: don't swallow, don't retry other hosts
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("depth_unavailable");
+}
+
+router.get("/depth", async (req, res) => {
+  try {
+    const symbol = cleanSymbol(req.query.symbol);
+    const limit = [5, 10, 20, 50, 100, 500, 1000].includes(parseInt(req.query.limit, 10))
+      ? parseInt(req.query.limit, 10) : 100;
+    const data = await fetchDepth(symbol, limit);
+    res.json(data);
+  } catch (e) {
+    // invalid symbol -> 400 (client error), anything else -> 502
+    if (e.invalidSymbol || String(e.message || "").includes("-1121") ||
+        String(e.message || "").includes("Invalid symbol")) {
+      return res.status(400).json({ error: "invalid_symbol" });
+    }
+    res.status(502).json({ error: "depth_unavailable", detail: String(e.message).slice(0, 200) });
+  }
+});
+
 module.exports = router;

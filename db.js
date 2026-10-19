@@ -57,7 +57,8 @@ function toPg(sql) {
     .replace(/\?/g, () => `$${++i}`);
 }
 // Tables whose INSERTs need the new id back (RETURNING id on pg).
-const ID_TABLES = new Set(["users", "api_credentials", "analyses", "paper_trades"]);
+const ID_TABLES = new Set(["users", "api_credentials", "analyses", "paper_trades",
+  "mt5_accounts", "binance_accounts"]);
 
 const db = {
   isPostgres,
@@ -192,6 +193,55 @@ async function ensureSchema() {
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         closed_at   TIMESTAMPTZ
       );
+      CREATE TABLE IF NOT EXISTS mt5_accounts (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        label       TEXT NOT NULL DEFAULT '',
+        server      TEXT NOT NULL DEFAULT '',
+        account_id  TEXT NOT NULL DEFAULT '',
+        password_enc TEXT NOT NULL DEFAULT '',
+        is_master   INTEGER NOT NULL DEFAULT 0,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS binance_accounts (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        venue       TEXT NOT NULL DEFAULT '',
+        label       TEXT NOT NULL DEFAULT '',
+        api_key_enc TEXT NOT NULL,
+        api_sec_enc TEXT NOT NULL,
+        is_master   INTEGER NOT NULL DEFAULT 0,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS copier_settings (
+        user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        enabled     INTEGER NOT NULL DEFAULT 0,
+        mt5_account_ids TEXT NOT NULL DEFAULT '[]',
+        binance_account_ids TEXT NOT NULL DEFAULT '[]',
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS tilt_settings (
+        user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        mode        TEXT NOT NULL DEFAULT 'losses',
+        max_losses  INTEGER NOT NULL DEFAULT 3,
+        max_drawdown_pct DOUBLE PRECISION NOT NULL DEFAULT 5,
+        cooldown_hours DOUBLE PRECISION NOT NULL DEFAULT 4,
+        balance     DOUBLE PRECISION NOT NULL DEFAULT 10000,
+        locked_until TIMESTAMPTZ,
+        snooze_until TIMESTAMPTZ,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    // Migration: exit_price/pnl on paper_trades for the tilt-lock loss tracker.
+    await db.exec("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS exit_price DOUBLE PRECISION");
+    await db.exec("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS pnl DOUBLE PRECISION");
+    // Migration: manual-unlock snooze on tilt_settings (UNLOCK = 30 min grace).
+    await db.exec("ALTER TABLE tilt_settings ADD COLUMN IF NOT EXISTS snooze_until TIMESTAMPTZ");
+    // Migration: mt5_credentials (single) -> mt5_accounts (multi). Keeps old table.
+    await db.exec(`
+      INSERT INTO mt5_accounts (user_id, label, server, account_id, password_enc, is_master)
+      SELECT user_id, 'Primary', server, account_id, password_enc, 1 FROM mt5_credentials mc
+      WHERE NOT EXISTS (SELECT 1 FROM mt5_accounts ma WHERE ma.user_id = mc.user_id)
     `);
     // Migration: voice-journal tags on analyses (added 2026-10-19).
     await db.exec("ALTER TABLE analyses ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT '[]'");
@@ -262,6 +312,63 @@ async function ensureSchema() {
         created_at   TEXT NOT NULL DEFAULT (datetime('now')),
         closed_at    TEXT
       );
+      CREATE TABLE IF NOT EXISTS mt5_accounts (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        label        TEXT NOT NULL DEFAULT '',
+        server       TEXT NOT NULL DEFAULT '',
+        account_id   TEXT NOT NULL DEFAULT '',
+        password_enc TEXT NOT NULL DEFAULT '',
+        is_master    INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS binance_accounts (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        venue        TEXT NOT NULL DEFAULT '',
+        label        TEXT NOT NULL DEFAULT '',
+        api_key_enc  TEXT NOT NULL,
+        api_sec_enc  TEXT NOT NULL,
+        is_master    INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS copier_settings (
+        user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        enabled     INTEGER NOT NULL DEFAULT 0,
+        mt5_account_ids TEXT NOT NULL DEFAULT '[]',
+        binance_account_ids TEXT NOT NULL DEFAULT '[]',
+        updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS tilt_settings (
+        user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        mode        TEXT NOT NULL DEFAULT 'losses',
+        max_losses  INTEGER NOT NULL DEFAULT 3,
+        max_drawdown_pct REAL NOT NULL DEFAULT 5,
+        cooldown_hours REAL NOT NULL DEFAULT 4,
+        balance     REAL NOT NULL DEFAULT 10000,
+        locked_until TEXT,
+        snooze_until TEXT,
+        updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    // Migration: exit_price/pnl on paper_trades for the tilt-lock loss tracker.
+    const pcols = (await db.all(`PRAGMA table_info(paper_trades)`)).map((c) => c.name);
+    if (!pcols.includes("exit_price")) {
+      await db.exec("ALTER TABLE paper_trades ADD COLUMN exit_price REAL");
+    }
+    if (!pcols.includes("pnl")) {
+      await db.exec("ALTER TABLE paper_trades ADD COLUMN pnl REAL");
+    }
+    // Migration: manual-unlock snooze on tilt_settings (UNLOCK = 30 min grace).
+    const tcols = (await db.all(`PRAGMA table_info(tilt_settings)`)).map((c) => c.name);
+    if (!tcols.includes("snooze_until")) {
+      await db.exec("ALTER TABLE tilt_settings ADD COLUMN snooze_until TEXT");
+    }
+    // Migration: mt5_credentials (single) -> mt5_accounts (multi). Keeps old table.
+    await db.exec(`
+      INSERT INTO mt5_accounts (user_id, label, server, account_id, password_enc, is_master)
+      SELECT user_id, 'Primary', server, account_id, password_enc, 1 FROM mt5_credentials mc
+      WHERE NOT EXISTS (SELECT 1 FROM mt5_accounts ma WHERE ma.user_id = mc.user_id)
     `);
     // Migration: link local users to Firebase accounts (added 2026-10-19).
     // SQLite cannot ADD COLUMN with UNIQUE, so uniqueness comes from the index.
