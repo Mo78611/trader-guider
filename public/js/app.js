@@ -148,12 +148,17 @@ function renderView() {
 }
 
 /* ---------- data ---------- */
+let loadToken = 0;
 async function loadData() {
+  const myToken = ++loadToken;
   const r = await fetch(`/api/market/klines?symbol=${state.symbol}&interval=${state.timeframe}&limit=500`);
+  if (myToken !== loadToken) return; // a newer load started — this one is stale, don't render
   if (!r.ok) { setHint("Market data unavailable — check connection."); return; }
   const j = await r.json();
+  if (myToken !== loadToken) return;
   state.candles = j.candles;
-  renderView();
+  renderView(); // price + indicators recomputed together from the SAME candles
+  if (myToken !== loadToken) return;
   if (!(window.TGReplay && window.TGReplay.active())) {
     state.chart.timeScale().scrollToRealTime();
   }
