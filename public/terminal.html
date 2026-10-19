@@ -25,6 +25,7 @@
     <datalist id="symList"></datalist>
   </div>
   <div id="tfBar" style="display:flex;gap:4px"></div>
+  <button class="link" id="replayBtn" title="Bar replay / backtest">⏪ Replay</button>
   <div class="spacer"></div>
   <span id="tickerInfo" style="color:var(--dim);font-size:13px"></span>
   <span id="mt5Status" class="pill">MT5: …</span>
@@ -121,6 +122,19 @@
         <input id="execVol" type="number" step="0.001" value="0.01">
       </div>
       <div class="row">
+        <label><input type="checkbox" id="autoLot" style="width:auto" checked> Auto lot</label>
+        <input id="riskPct" type="number" step="0.1" min="0.1" max="100" value="1" title="Risk % per trade" placeholder="Risk %" style="max-width:76px">
+        <input id="acctBal" type="number" step="any" min="0" value="10000" title="Account balance (auto-filled when MT5 connects)" placeholder="Balance">
+      </div>
+      <div class="row">
+        <label style="width:86px"></label>
+        <div id="lotOut" style="flex:1;font-size:12px;color:var(--dim)">—</div>
+      </div>
+      <div class="row">
+        <label style="width:86px"></label>
+        <button class="btn" id="useSigSL" style="flex:1;font-size:12px;padding:6px 8px">⚡ Use signal SL</button>
+      </div>
+      <div class="row">
         <label>Stop loss</label>
         <input id="execSL" type="number" step="any" placeholder="price">
       </div>
@@ -203,7 +217,12 @@
   <div class="modal">
     <h2>Save analysis</h2>
     <div class="row"><label>Title</label><input id="anTitle" style="flex:1"></div>
-    <div class="row"><label>Breakdown</label></div>
+    <div class="row">
+      <label>Breakdown</label>
+      <button class="btn" id="micBtn" title="Voice journal — speak your trade logic">🎤 Speak</button>
+    </div>
+    <div id="tagChips"></div>
+    <div class="status-line" id="micStatus"></div>
     <textarea id="anBody" placeholder="Technical breakdown: structure, levels, invalidation, plan…"></textarea>
     <div class="row" style="margin-top:8px"><label><input type="checkbox" id="anPublic" checked style="width:auto"> Public (show in Hub gallery)</label></div>
     <div class="row"><button class="btn wide" id="doSaveAnalysis">Save to Hub</button></div>
@@ -218,6 +237,9 @@
 <script src="/js/mtf.js"></script>
 <script src="/js/trademgr.js"></script>
 <script src="/js/news.js"></script>
+<script src="/js/riskcalc.js"></script>
+<script src="/js/replay.js"></script>
+<script src="/js/voice.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

@@ -4,6 +4,13 @@ let mode = "public";
 let cache = [];
 let myId = null;
 
+function tagChipsHTML(tags) {
+  if (!tags || !tags.length) return "";
+  return tags.map((t) => `<span class="tag-chip" style="cursor:default">${escapeHtml(t)}</span>`).join("");
+}
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
 async function boot() {
   const me = await fetch("/api/auth/me").then((r) => r.json()).catch(() => ({ user: null }));
   if (!me.user) { location.href = "/login.html"; return; }
@@ -43,6 +50,12 @@ async function load() {
     card.querySelector(".meta").textContent =
       `${a.author ? a.author.name : "?"} · ${a.symbol} ${a.timeframe} · ${a.created_at.slice(0, 16).replace("T", " ")}`;
     card.querySelector("p").textContent = (a.body || "").slice(0, 220);
+    if (a.tags && a.tags.length) {
+      const chips = document.createElement("div");
+      chips.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;margin-top:8px";
+      chips.innerHTML = tagChipsHTML(a.tags);
+      card.querySelector(".body").appendChild(chips);
+    }
     card.style.cursor = "pointer";
     card.onclick = () => openView(a.id);
     grid.appendChild(card);
@@ -60,6 +73,7 @@ async function openView(id) {
   if (current.snapshot) { img.src = current.snapshot; img.style.display = "block"; }
   else img.style.display = "none";
   document.getElementById("vBody").textContent = current.body || "(no breakdown written)";
+  document.getElementById("vTags").innerHTML = tagChipsHTML(current.tags);
   document.getElementById("vDel").style.display =
     (current.author && current.author.id === myId) ? "inline-block" : "none";
   document.getElementById("viewModal").classList.add("open");

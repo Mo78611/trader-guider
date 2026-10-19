@@ -1,7 +1,8 @@
 :root{
-  --bg:#0b0e14; --panel:#11161f; --panel2:#151c29; --border:#232c40;
+  --bg:#05070c; --panel:#11161f; --panel2:#151c29; --border:#232c40;
   --text:#dbe2ef; --dim:#8b94a7; --gold:#d4a94e; --green:#26a69a; --red:#ef5350;
   --accent:#4f7cff;
+  --buy:#00e5a0; --sell:#ff4d6d; /* neon accents */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -144,6 +145,56 @@ table.mini th{color:var(--dim);font-weight:400}
 
 /* sentiment badge above chart */
 .sent-badge{position:absolute;top:10px;left:12px;background:rgba(17,22,31,.92);border:1px solid var(--border);border-radius:8px;padding:5px 10px;z-index:20;font-size:12px;color:var(--text);pointer-events:none}
+
+/* bar replay control bar */
+#replayBar{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:80;
+  display:none;align-items:center;gap:8px;background:rgba(13,17,26,.94);
+  border:1px solid var(--gold);border-radius:12px;padding:8px 12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.rp-title{color:var(--gold);font-weight:800;font-size:13px;letter-spacing:1px;margin-right:4px}
+.rp-btn{padding:6px 12px;font-size:14px}
+.rp-btn.rp-exit{border-color:var(--red);color:#f5a3a1}
+.rp-count{color:var(--dim);font-size:12px;min-width:90px;text-align:center}
+
+/* voice journal tag chips */
+#tagChips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.tag-chip{font-size:12px;background:rgba(212,169,78,.12);border:1px solid var(--gold);
+  color:var(--gold);border-radius:14px;padding:3px 10px;cursor:pointer}
+.tag-chip:hover{border-color:var(--red);color:var(--red)}
+#micBtn.listening{border-color:var(--red);color:var(--red);animation:micpulse 1s infinite}
+@keyframes micpulse{50%{box-shadow:0 0 12px rgba(239,83,80,.6)}}
+
+/* ================================================================
+ * ELITE GLASS POLISH (visual only — no layout changes)
+ * Frosted-glass panels, deep OLED blacks, neon buy/sell accents,
+ * 60fps transform/opacity transitions. Mobile layout untouched.
+ * ================================================================ */
+.topbar{background:rgba(8,11,18,.72);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%)}
+.side{background:rgba(8,11,18,.62);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%)}
+.sec{background:transparent}
+.modal{background:rgba(15,20,32,.85);backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);box-shadow:0 24px 64px rgba(0,0,0,.65)}
+.mtf,.sent-badge,.news-panel,.method-menu{background:rgba(12,16,25,.78);backdrop-filter:blur(14px) saturate(130%);-webkit-backdrop-filter:blur(14px) saturate(130%)}
+.chart-hint{background:rgba(5,7,12,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.auth-card{background:rgba(15,20,32,.8);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.hub-card{background:rgba(15,20,32,.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+/* neon buy/sell */
+.btn.buy{background:rgba(0,229,160,.12);border-color:var(--buy);color:#8affdd;box-shadow:0 0 18px rgba(0,229,160,.14)}
+.btn.buy:hover{border-color:var(--buy);box-shadow:0 0 26px rgba(0,229,160,.3)}
+.btn.sell{background:rgba(255,77,109,.12);border-color:var(--sell);color:#ff9dab;box-shadow:0 0 18px rgba(255,77,109,.14)}
+.btn.sell:hover{border-color:var(--sell);box-shadow:0 0 26px rgba(255,77,109,.3)}
+/* 60fps micro-interactions (transform + opacity only) */
+.btn{transition:transform .08s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease}
+.btn:active{transform:scale(.96)}
+.tool{transition:transform .08s ease,background .15s ease,color .15s ease}
+.tool:active{transform:scale(.92)}
+.tf-btn{transition:border-color .15s ease,color .15s ease,transform .08s ease}
+.tf-btn:active{transform:scale(.94)}
+.modal-back .modal{transition:transform .18s ease-out,opacity .18s ease-out}
+.modal-back.open .modal{animation:tgpop .18s ease-out}
+@keyframes tgpop{from{transform:translateY(12px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+.method-row{transition:background .12s ease}
+.ind-item{transition:border-color .15s ease}
+#replayBar{background:rgba(10,13,20,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 
 /* ================================================================
  * MOBILE (max-width: 768px): chart full-width on top, panels stack

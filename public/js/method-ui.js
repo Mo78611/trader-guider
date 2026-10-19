@@ -97,6 +97,7 @@ window.TGMethodUI = (function () {
     news: { key: null, events: [] }, newsBusy: false,
     sent: { key: null, at: 0, data: null },
     registry: [], timer: null, ui: false,
+    lastSignal: null,
   };
 
   function defaultState() {
@@ -611,6 +612,7 @@ window.TGMethodUI = (function () {
     try { renderSentiment(rc, t0, t1, lo, hi); } catch (_e) {}
     // signal (drawn into the same render context)
     const res = evaluateSignal(ctx);
+    S.lastSignal = res || { state: "none" };
     if ((res.state === "single" || res.state === "confluence") && res.signal) {
       try { window.TGSignals.render(S.chart, rc, res.signal, t0, t1); }
       catch (_e) { /* signal art must never break the chart */ }
@@ -779,5 +781,6 @@ window.TGMethodUI = (function () {
     renderAll();
   }
 
-  return { init, onData, getState, setState, renderAll, METHODS };
+  return { init, onData, getState, setState, renderAll, METHODS,
+    getLastSignal: () => S.lastSignal || { state: "none" } };
 })();

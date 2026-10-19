@@ -53,6 +53,24 @@ function initChart() {
     const m = $(".main");
     state.chart.resize(m.clientWidth, m.clientHeight);
   }).observe($(".main"));
+  // bar-replay: a click on the chart while armed sets the replay cutoff
+  state.chart.subscribeClick((p) => { if (window.TGReplay) window.TGReplay.onChartClick(p); });
+}
+
+/* ---------- replay-aware candle view ----------
+ * state.candles ALWAYS holds the full dataset. During bar replay the
+ * *visible* slice is candles with time <= cutoff. Drawings keep using the
+ * full array (absolute times — never corrupted). */
+function viewCandles() {
+  if (window.TGReplay && window.TGReplay.active()) return window.TGReplay.visible();
+  return state.candles;
+}
+function renderView() {
+  const C = viewCandles();
+  state.candleSeries.setData(C);
+  applyIndicators();
+  if (state.drawings) state.drawings.render();
+  if (window.TGMethodUI) window.TGMethodUI.onData();
 }
 
 /* ---------- data ---------- */
@@ -61,17 +79,22 @@ async function loadData() {
   if (!r.ok) { setHint("Market data unavailable — check connection."); return; }
   const j = await r.json();
   state.candles = j.candles;
-  state.candleSeries.setData(state.candles);
-  applyIndicators();
-  if (state.drawings) state.drawings.render();
-  if (window.TGMethodUI) window.TGMethodUI.onData();
-  state.chart.timeScale().scrollToRealTime();
+  renderView();
+  if (!(window.TGReplay && window.TGReplay.active())) {
+    state.chart.timeScale().scrollToRealTime();
+  }
   scheduleSave();
   const t = await fetch(`/api/market/ticker?symbol=${state.symbol}`).then((x) => x.json()).catch(() => null);
-  if (t && t.lastPrice) {
+  const replaying = window.TGReplay && window.TGReplay.active();
+  if (replaying) {
+    const C = viewCandles();
+    const last = C.length ? C[C.length - 1].close : 0;
+    $("#tickerInfo").textContent = `${state.symbol}  $${Number(last).toLocaleString()}  · REPLAY`;
+  } else if (t && t.lastPrice) {
     const chg = t.priceChangePercent != null ? `  24h ${Number(t.priceChangePercent).toFixed(2)}%` : "";
     $("#tickerInfo").textContent = `${state.symbol}  $${Number(t.lastPrice).toLocaleString()}${chg}  · ${t.source || ""}`;
   }
+  if (window.TGRisk) window.TGRisk.recalc(); // entry price moved -> resize the lot
 }
 
 function setHint(t) { const h = $("#chartHint"); if (h) h.textContent = t; }
@@ -121,7 +144,7 @@ function mkLine(pane, color, width, title) {
 }
 function applyIndicators() {
   clearIndSeries();
-  const C = state.candles;
+  const C = viewCandles(); // replay-aware: indicators recompute on the visible slice
   if (!C.length) return;
   const closes = C.map((c) => c.close);
   for (const ind of state.indicators) {
@@ -403,16 +426,25 @@ async function connectMt5() {
     else if (j.account) {
       const a = j.account;
       setMt5Conn(`Connected ✓ ${a.login} @ ${a.server} — balance ${a.balance} ${a.currency}${a.trade_mode === 2 ? " (REAL account)" : " (demo)"}`, false);
+      // auto-fill the risk calculator balance from the real account
+      try {
+        const bal = parseFloat(a.balance);
+        if (bal > 0 && $("#acctBal")) { $("#acctBal").value = bal; if (window.TGRisk) window.TGRisk.recalc(); }
+      } catch (_e) {}
     } else setMt5Conn("Bridge replied, unexpected response.", true);
     refreshExecStatus();
   } catch (e) { setMt5Conn("Connect failed: " + e.message, true); }
 }
 
 async function oneClick(action) {
+  try { if (navigator.vibrate) navigator.vibrate(15); } catch (_e) {} // haptic tap
   const target = $("#execTarget").value;
   const sl = parseFloat($("#execSL").value) || 0;
   const tp = parseFloat($("#execTP").value) || 0;
-  const vol = parseFloat($("#execVol").value) || 0.01;
+  // Auto-lot calculator: when Auto lot is on, volume comes from risk % × SL distance.
+  const vol = (window.TGRisk && $("#autoLot") && $("#autoLot").checked)
+    ? window.TGRisk.effectiveVolume()
+    : (parseFloat($("#execVol").value) || 0.01);
   const venue = binanceVenue();
   const isMainnet = venue && venue.endsWith("_main");
 
@@ -442,8 +474,13 @@ async function oneClick(action) {
         : `Sent ✓ ${ticket ? "ticket: " + ticket : ""} — tracked below`;
       // register with the Auto Trade Manager
       if (window.TGTradeMgr) {
-        const lastPrice = await fetch(`/api/market/ticker?symbol=${encodeURIComponent(body.symbol)}`)
-          .then((r) => r.json()).then((t) => parseFloat(t.lastPrice)).catch(() => null);
+        let lastPrice = 0;
+        if (window.TGReplay && window.TGReplay.active()) {
+          lastPrice = window.TGReplay.lastClose(); // paper price = last VISIBLE bar
+        } else {
+          lastPrice = await fetch(`/api/market/ticker?symbol=${encodeURIComponent(body.symbol)}`)
+            .then((r) => r.json()).then((t) => parseFloat(t.lastPrice)).catch(() => null);
+        }
         await window.TGTradeMgr.track({
           symbol: body.symbol, side: action,
           entry: lastPrice > 0 ? lastPrice : 0,
@@ -501,6 +538,7 @@ function currentWorkspace() {
 function openAnalysisModal() {
   $("#anTitle").value = `${state.symbol} ${state.timeframe} — analysis`;
   $("#anBody").value = "";
+  if (window.TGVoice) window.TGVoice.reset();
   $("#analysisModal").classList.add("open");
 }
 async function saveAnalysis() {
@@ -515,6 +553,7 @@ async function saveAnalysis() {
       title, body, symbol: state.symbol, timeframe: state.timeframe,
       chart_state: currentWorkspace(), snapshot,
       is_public: $("#anPublic").checked,
+      tags: window.TGVoice ? window.TGVoice.tags : [],
     }),
   });
   const j = await r.json();
@@ -551,7 +590,7 @@ async function boot() {
     window.TGMethodUI.init({
       chart: state.chart,
       candleSeries: state.candleSeries,
-      getCandles: () => state.candles,
+      getCandles: () => viewCandles(), // replay-aware slice
       getTimeframe: () => state.timeframe,
       getSymbol: () => state.symbol,
       onChange: scheduleSave,
@@ -575,7 +614,10 @@ async function boot() {
   TIMEFRAMES.forEach((t) => {
     const b = document.createElement("button");
     b.className = "tf-btn"; b.textContent = t; b.dataset.tf = t;
-    b.onclick = () => { state.timeframe = t; syncTf(); loadData(); };
+    b.onclick = () => {
+      if (window.TGReplay && window.TGReplay.active()) window.TGReplay.exit();
+      state.timeframe = t; syncTf(); loadData();
+    };
     tfb.appendChild(b);
   });
 
@@ -638,9 +680,28 @@ async function boot() {
     window.TGTradeMgr.init();
   }
 
+  // auto-lot risk calculator (reads live price as entry for SL distance)
+  if (window.TGRisk) {
+    window.TGRisk.init({
+      getEntry: () => { const C = viewCandles(); return C.length ? C[C.length - 1].close : 0; },
+      getSymbol: () => $("#execTarget").value === "mt5" ? ($("#mt5Sym").value.trim() || mt5Symbol(state.symbol)) : state.symbol,
+      getTarget: () => $("#execTarget").value === "mt5" ? "mt5" : "binance",
+    });
+  }
+
+  // bar replay / backtest mode
+  if (window.TGReplay) {
+    window.TGReplay.init({
+      getFull: () => state.candles,
+      onRender: () => renderView(),
+      getHint: () => $("#chartHint"),
+    });
+  }
+
   // analysis
   $("#saveAnalysisBtn").onclick = openAnalysisModal;
   $("#doSaveAnalysis").onclick = saveAnalysis;
+  if (window.TGVoice) window.TGVoice.init({ getSymbol: () => state.symbol });
 
   // user
   $("#logoutBtn").onclick = async () => { await fetch("/api/auth/logout", { method: "POST" }); location.href = "/login.html"; };
@@ -652,7 +713,10 @@ async function boot() {
 
   $("#symInput").addEventListener("change", (e) => {
     const v = e.target.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (v) { state.symbol = v; loadData(); if (window.TGMTF) window.TGMTF.onSymbolChange(); if (window.TGNews) window.TGNews.onSymbolChange(); }
+    if (v) {
+      if (window.TGReplay && window.TGReplay.active()) window.TGReplay.exit();
+      state.symbol = v; loadData(); if (window.TGMTF) window.TGMTF.onSymbolChange(); if (window.TGNews) window.TGNews.onSymbolChange();
+    }
   });
 
   refreshExecStatus();

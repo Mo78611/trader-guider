@@ -163,6 +163,7 @@ async function ensureSchema() {
         chart_state TEXT NOT NULL DEFAULT '{}',
         snapshot    TEXT,
         is_public   INTEGER NOT NULL DEFAULT 1,
+        tags        TEXT NOT NULL DEFAULT '[]',
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       CREATE TABLE IF NOT EXISTS mt5_credentials (
@@ -192,6 +193,8 @@ async function ensureSchema() {
         closed_at   TIMESTAMPTZ
       );
     `);
+    // Migration: voice-journal tags on analyses (added 2026-10-19).
+    await db.exec("ALTER TABLE analyses ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT '[]'");
   } else {
     await db.exec(`
       CREATE TABLE IF NOT EXISTS users (
@@ -230,6 +233,7 @@ async function ensureSchema() {
         chart_state TEXT NOT NULL DEFAULT '{}',
         snapshot    TEXT,
         is_public   INTEGER NOT NULL DEFAULT 1,
+        tags        TEXT NOT NULL DEFAULT '[]',
         created_at  TEXT NOT NULL DEFAULT (datetime('now'))
       );
       CREATE TABLE IF NOT EXISTS mt5_credentials (
@@ -266,6 +270,11 @@ async function ensureSchema() {
       await db.exec("ALTER TABLE users ADD COLUMN firebase_uid TEXT");
     }
     await db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_firebase_uid ON users(firebase_uid)");
+    // Migration: voice-journal tags on analyses (added 2026-10-19).
+    const acols = (await db.all(`PRAGMA table_info(analyses)`)).map((c) => c.name);
+    if (!acols.includes("tags")) {
+      await db.exec("ALTER TABLE analyses ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'");
+    }
   }
 }
 
