@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trader Guider — Strategy Playbook</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  body{background:#131722;color:#d1d4dc;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;margin:0;line-height:1.6}
+  .pb-wrap{max-width:900px;margin:0 auto;padding:28px 18px 80px}
+  .pb-hero{text-align:center;margin-bottom:36px}
+  .pb-hero h1{color:#d4a94e;font-size:30px;margin:8px 0}
+  .pb-hero p{color:#787b86;max-width:640px;margin:0 auto}
+  .pb-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:24px 0}
+  .pb-nav a{color:#d4a94e;text-decoration:none;border:1px solid #2a2e39;border-radius:8px;padding:6px 12px;font-size:13px;background:#1c2330}
+  .pb-nav a:hover{background:#2a2e39}
+  .pb-card{background:#1c2330;border:1px solid #2a2e39;border-radius:14px;padding:20px;margin-bottom:18px}
+  .pb-card h2{margin:0 0 4px;font-size:19px}
+  .pb-tag{display:inline-block;font-size:11px;border:1px solid #2a2e39;border-radius:6px;padding:2px 8px;color:#787b86;margin-bottom:10px}
+  .pb-card ul{margin:8px 0 0;padding-left:20px}
+  .pb-card li{margin:6px 0;font-size:14px}
+  .pb-card li b{color:#fff}
+  .pb-syn{background:#1c2330;border:1px solid #2a2e39;border-radius:14px;padding:20px;margin-bottom:14px;border-left:4px solid #d4a94e}
+  .pb-syn h3{margin:0 0 6px;color:#d4a94e;font-size:16px}
+  .pb-syn p{margin:4px 0;font-size:14px}
+  .pb-syn .why{color:#787b86;font-size:13px}
+  .pb-warn{background:#2a1f1f;border:1px solid #5a2e2e;border-radius:12px;padding:16px 20px;margin:30px 0;color:#e8a0a0;font-size:14px}
+  .pb-back{display:inline-block;margin-bottom:18px;color:#d4a94e;text-decoration:none;font-size:14px}
+  h2.sec-title{color:#fff;font-size:23px;margin:36px 0 14px;border-bottom:1px solid #2a2e39;padding-bottom:8px}
+</style>
+</head>
+<body>
+<div class="pb-wrap">
+  <a class="pb-back" href="/terminal">← Back to terminal</a>
+  <div class="pb-hero">
+    <div style="font-size:40px">📖</div>
+    <h1>Strategy Playbook</h1>
+    <p>Plain-English guide to every methodology on Trader Guider — what each one finds, when it works best, where it fails, and how to combine them like a pro. No hype. Just how it works.</p>
+  </div>
+
+  <div class="pb-nav">
+    <a href="#ict">ICT</a><a href="#smc">SMC</a><a href="#vsa">VSA</a><a href="#pa">Price Action</a>
+    <a href="#elliott">Elliott</a><a href="#patterns">Patterns</a><a href="#trendsr">Trendlines+S/R</a>
+    <a href="#sentiment">Sentiment</a><a href="#smt">SMT</a><a href="#displacement">Displacement</a>
+    <a href="#magnets">Magnets</a><a href="#killzones">Killzones</a><a href="#synergy">Synergies</a>
+  </div>
+
+  <h2 class="sec-title">The Methodologies</h2>
+
+  <div class="pb-card" id="ict">
+    <h2><span style="color:#d4a94e">●</span> ICT (Inner Circle Trader)</h2>
+    <span class="pb-tag">institutional concepts</span>
+    <ul>
+      <li><b>What it finds:</b> Fair Value Gaps (price left a hole), Order Blocks (the last candle before a big move), liquidity sweeps (fake breakouts that grab stops), killzones (best trading hours).</li>
+      <li><b>When it shines:</b> Trending days with clear sessions — London and New York killzones give the cleanest ICT setups.</li>
+      <li><b>Weakness:</b> In slow, choppy markets it draws many gaps and blocks that never get used. Needs real momentum.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="smc">
+    <h2><span style="color:#4f7cff">●</span> SMC (Smart Money Concepts)</h2>
+    <span class="pb-tag">institutional concepts</span>
+    <ul>
+      <li><b>What it finds:</b> Market structure breaks (BOS), trend changes (CHoCH), order blocks and liquidity pools — where big money likely acts.</li>
+      <li><b>When it shines:</b> After a sweep of old highs/lows, when structure flips and price returns to an order block.</li>
+      <li><b>Weakness:</b> Structure looks obvious only in hindsight; live, every small break can fake you out. Wait for the retest.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="vsa">
+    <h2><span style="color:#26a69a">●</span> VSA (Volume Spread Analysis)</h2>
+    <span class="pb-tag">volume reading</span>
+    <ul>
+      <li><b>What it finds:</b> What volume is telling you — buying/selling climaxes, no-demand / no-supply bars, stopping volume (smart money absorbing).</li>
+      <li><b>When it shines:</b> At tops and bottoms. A climax bar with huge volume often marks the exact turning point.</li>
+      <li><b>Weakness:</b> Needs real volume data. On forex (no central volume) it uses tick volume — useful, but weaker than crypto/futures.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="pa">
+    <h2><span style="color:#b48cf2">●</span> Price Action</h2>
+    <span class="pb-tag">pure chart reading</span>
+    <ul>
+      <li><b>What it finds:</b> Support/resistance zones where price reacted many times, plus engulfing candles and pin bars at those zones.</li>
+      <li><b>When it shines:</b> Always — it is the foundation. Every other methodology works better on top of clean S/R.</li>
+      <li><b>Weakness:</b> Alone it has no timing edge; a zone can hold five times and break on the sixth. Needs a trigger.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="elliott">
+    <h2><span style="color:#ef5350">●</span> Elliott Wave</h2>
+    <span class="pb-tag">wave structure</span>
+    <ul>
+      <li><b>What it finds:</b> 5-wave impulses and A-B-C corrections, labeled by strict rules (wave 2 never retraces 100%, wave 3 is never the shortest).</li>
+      <li><b>When it shines:</b> Strong trends — catching wave 3 or the end of wave 5 is the highest-reward trade in technical analysis.</li>
+      <li><b>Weakness:</b> Our labels are a rules-based approximation, not a human analyst. Counts can redraw as new candles form. Use as a map, not gospel.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="patterns">
+    <h2><span style="color:#8b94a7">●</span> Chart Patterns</h2>
+    <span class="pb-tag">classic patterns</span>
+    <ul>
+      <li><b>What it finds:</b> Head &amp; Shoulders, Double Tops/Bottoms, wedges, flags — with neckline breaks confirmed.</li>
+      <li><b>When it shines:</b> Reversal patterns at big S/R zones, continuation flags inside strong trends.</li>
+      <li><b>Weakness:</b> Patterns fail often without volume or structure confirmation. A lone pattern is a coin flip.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="trendsr">
+    <h2><span style="color:#f0b429">●</span> Trendlines + S/R</h2>
+    <span class="pb-tag">dynamic levels</span>
+    <ul>
+      <li><b>What it finds:</b> Auto-drawn trendlines (3+ touches) and horizontal zones, with breakout and retest/bounce signals.</li>
+      <li><b>When it shines:</b> Clean trending markets — the third touch of a trendline is one of the most reliable entries in trading.</li>
+      <li><b>Weakness:</b> In chop, trendlines break constantly. More touches = stronger line; two touches is just a guess.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="sentiment">
+    <h2><span style="color:#26d3a0">●</span> Sentiment &amp; News</h2>
+    <span class="pb-tag">fundamental + crowd</span>
+    <ul>
+      <li><b>What it finds:</b> Upcoming high-impact news (NFP, CPI, FOMC) drawn on the chart, live retail long/short %, Fear &amp; Greed, and a % bias per event.</li>
+      <li><b>When it shines:</b> Before big news — knowing retail is 80% long into CPI keeps you from joining the crowd right before the trap.</li>
+      <li><b>Weakness:</b> Bias % is a model estimate, not a prediction. News can surprise; spreads widen; slippage is real.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="smt">
+    <h2><span style="color:#f0b429">●</span> SMT Divergence</h2>
+    <span class="pb-tag">intermarket ICT</span>
+    <ul>
+      <li><b>What it finds:</b> When your asset makes a higher high but the correlated reference asset fails to confirm (or vice versa) — smart-money disagreement.</li>
+      <li><b>When it shines:</b> At major tops/bottoms, especially XAUUSD vs DXY-style pairs. Divergence often appears days before the turn.</li>
+      <li><b>Weakness:</b> Correlations break during risk-on/risk-off shocks. Divergence can persist longer than your patience.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="displacement">
+    <h2><span style="color:#00e5a0">●</span> Displacement Radar</h2>
+    <span class="pb-tag">impulse scoring</span>
+    <ul>
+      <li><b>What it finds:</b> Scores every strong leg by body %, volume and speed — real institutional displacement glows, weak noise fades.</li>
+      <li><b>When it shines:</b> Filtering: only trade order blocks and FVGs that were born from a glowing (high-score) leg.</li>
+      <li><b>Weakness:</b> A high score says "big money moved", not "price will continue". News spikes score high and reverse fast.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="magnets">
+    <h2><span style="color:#f0b429">●</span> Sweep Magnets</h2>
+    <span class="pb-tag">liquidity targets</span>
+    <ul>
+      <li><b>What it finds:</b> Pools of resting liquidity (equal highs/lows, old extremes) ranked by magnet strength — where price is likely drawn.</li>
+      <li><b>When it shines:</b> Setting targets: aim where the liquidity sits, not at round numbers. Strongest use is with a sweep entry.</li>
+      <li><b>Weakness:</b> Price does not have to visit every pool. Magnets show attraction, not a schedule.</li>
+    </ul>
+  </div>
+
+  <div class="pb-card" id="killzones">
+    <h2><span style="color:#8b94a7">●</span> Killzone Sessions</h2>
+    <span class="pb-tag">time filter</span>
+    <ul>
+      <li><b>What it finds:</b> Asian / London / New York session boxes and the true midnight open line — when, not just where.</li>
+      <li><b>When it shines:</b> As a filter for everything else: ICT and VSA setups inside killzones win far more than the same setups at dead hours.</li>
+      <li><b>Weakness:</b> It is a filter, not a signal. Session alone tells you nothing about direction.</li>
+    </ul>
+  </div>
+
+  <h2 class="sec-title" id="synergy">🤝 Synergy Recipes — combinations that work</h2>
+
+  <div class="pb-syn">
+    <h3>1. The Classic Trio: Sweep + FVG + VSA no-supply</h3>
+    <p>Price sweeps sell-side liquidity, leaves a bullish FVG, and volume shows no supply on the pullback.</p>
+    <p class="why">Why it works: the trap (sweep) + the footprint (FVG) + the confirmation (no sellers left). Three independent witnesses.</p>
+  </div>
+
+  <div class="pb-syn">
+    <h3>2. VSA stopping volume + ICT bullish OB at London killzone</h3>
+    <p>Stopping volume appears exactly at a bullish order block during London hours.</p>
+    <p class="why">Why it works: smart-money absorption + institutional zone + prime time. Time, place and footprint align.</p>
+  </div>
+
+  <div class="pb-syn">
+    <h3>3. SMT divergence + sweep = trap confirmation</h3>
+    <p>XAUUSD sweeps a high but the reference asset refuses to confirm — divergence tags print at the sweep.</p>
+    <p class="why">Why it works: one market's lie is exposed by the other market's honesty. The best fakeouts show divergence first.</p>
+  </div>
+
+  <div class="pb-syn">
+    <h3>4. Trendline break + VSA climax filter</h3>
+    <p>Only take trendline breaks when volume does NOT show a climax; skip the break if a buying climax prints into it.</p>
+    <p class="why">Why it works: most failed breakouts are climax exhaustion in disguise. VSA tells the real break from the trap.</p>
+  </div>
+
+  <div class="pb-syn">
+    <h3>5. Sweep magnets as targets, sweep entry as trigger</h3>
+    <p>Enter on a liquidity sweep, aim at the strongest magnet (🧲) in the trade direction.</p>
+    <p class="why">Why it works: you enter where stops were hunted and exit where the next hunt will happen — trading the full liquidity cycle.</p>
+  </div>
+
+  <div class="pb-syn">
+    <h3>6. Displacement filter for ICT: only glowing FVGs</h3>
+    <p>Take only FVGs and order blocks created by a high displacement score (⚡ glowing leg).</p>
+    <p class="why">Why it works: weak legs leave weak footprints. Real displacement means real money behind the zone.</p>
+  </div>
+
+  <div class="pb-syn">
+    <h3>7. News zones + sentiment badge = stay out of the crowd</h3>
+    <p>When a tier-1 news zone approaches and retail is 75%+ long, stand aside or fade the crowd — don't chase.</p>
+    <p class="why">Why it works: crowded positioning into news is how stop-hunts are funded. The badge shows you the crowd in real time.</p>
+  </div>
+
+  <div class="pb-syn">
+    <h3>8. Double top + SMT divergence + killzone</h3>
+    <p>A double top forms at a magnet level, SMT prints divergence on the second top, all inside a killzone.</p>
+    <p class="why">Why it works: pattern + intermarket + time — the highest-conviction short setup in the ICT playbook.</p>
+  </div>
+
+  <div class="pb-warn">
+    ⚠️ <b>Honest note:</b> No combination guarantees wins. Synergies raise probability — they do not remove risk. The Live Estimator on the terminal shows the modeled trade frequency and win rate for your current combination. Always use a stop loss. Not financial advice.
+  </div>
+
+  <div style="text-align:center;margin-top:30px">
+    <a class="pb-back" href="/terminal" style="font-size:16px">← Back to terminal — tick methodologies in the ◈ menu and watch the Live Estimator</a>
+  </div>
+</div>
+</body>
+</html>

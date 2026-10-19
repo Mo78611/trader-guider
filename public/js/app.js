@@ -624,6 +624,13 @@ async function boot() {
     });
   }
 
+  // live strategy estimator (reads ticked methodologies, shows freq/win/strictness)
+  if (window.TGEstimator) {
+    window.TGEstimator.init({
+      getState: () => (window.TGMethodUI ? window.TGMethodUI.getState() : null),
+    });
+  }
+
   // news radar + sentiment widget
   if (window.TGNews) {
     window.TGNews.init({

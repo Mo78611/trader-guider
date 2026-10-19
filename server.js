@@ -66,6 +66,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.get("/terminal", (_req, res) => res.sendFile(path.join(__dirname, "public", "terminal.html")));
 app.get("/hub", (_req, res) => res.sendFile(path.join(__dirname, "public", "analysis.html")));
 app.get("/lab", (_req, res) => res.sendFile(path.join(__dirname, "public", "lab.html")));
+app.get("/playbook", (_req, res) => res.sendFile(path.join(__dirname, "public", "playbook.html")));
 
 async function main() {
   try {

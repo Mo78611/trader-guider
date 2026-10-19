@@ -715,6 +715,7 @@ window.TGMethodUI = (function () {
     }
     syncMenu();
     renderAll();
+    if (window.TGEstimator) window.TGEstimator.update();
   }
 
   /* ---------------- UI: dropdown menu ---------------- */
@@ -750,6 +751,7 @@ window.TGMethodUI = (function () {
       cb.onchange = () => {
         S.methods[k].enabled = cb.checked;
         renderAll();
+        if (window.TGEstimator) window.TGEstimator.update();
         if (S.onChange) S.onChange();
       };
       const lab = document.createElement("span");
@@ -876,6 +878,7 @@ window.TGMethodUI = (function () {
     buildSignalPanel();
     S.ui = true;
     renderAll();
+    if (window.TGEstimator) window.TGEstimator.update();
   }
 
   return { init, onData, getState, setState, renderAll, METHODS,

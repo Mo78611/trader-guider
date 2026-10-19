@@ -286,3 +286,16 @@ table.mini th{color:var(--dim);font-weight:400}
   .news-panel{top:auto;bottom:0;right:0;left:0;width:100%;max-width:100%;max-height:70vh;border-radius:14px 14px 0 0}
   .sent-badge{top:8px;left:8px;font-size:11px;max-width:60vw}
 }
+
+/* ---- Live Strategy Estimator (near ◈ Methodologies menu) ---- */
+.est-wrap{position:absolute;top:40px;left:0;background:var(--panel);border:1px solid var(--gold);border-radius:10px;padding:0;min-width:260px;max-width:300px;display:none;z-index:61;box-shadow:0 8px 24px rgba(0,0,0,.55),0 0 12px rgba(212,169,78,.15)}
+.est-head{padding:9px 12px;font-size:13px;font-weight:700;color:var(--gold);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.est-body{padding:4px 12px 12px}
+.est-line{font-size:13px;margin:4px 0;color:var(--text)}
+.est-meter{height:10px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin:8px 0 4px}
+.est-fill{height:100%;width:0%;border-radius:6px;transition:width .35s ease}
+.est-tip{font-size:12px;margin-top:6px;line-height:1.45}
+.est-tip.ok{color:var(--green)}
+.est-tip.warn{color:#f0b429}
+.est-tip.bad{color:var(--red)}
+.est-note{font-size:10.5px;color:var(--dim);margin-top:8px}
