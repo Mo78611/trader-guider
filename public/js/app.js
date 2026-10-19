@@ -151,6 +151,7 @@ function renderView() {
 let loadToken = 0;
 async function loadData() {
   const myToken = ++loadToken;
+  closeLive(); // stop old stream/poll before loading new symbol/timeframe
   const r = await fetch(`/api/market/klines?symbol=${state.symbol}&interval=${state.timeframe}&limit=500`);
   if (myToken !== loadToken) return; // a newer load started — this one is stale, don't render
   if (!r.ok) { setHint("Market data unavailable — check connection."); return; }
@@ -178,6 +179,101 @@ async function loadData() {
   if (window.TGKZ) window.TGKZ.onData(); // killzone boxes / midnight line follow new data
   if (window.TGDisplacement) window.TGDisplacement.onData();
   if (window.TGMagnets) window.TGMagnets.onData();
+  connectLiveWS(); // (re)connect live stream for the new symbol/timeframe
+}
+
+/* ---------- live price streaming ----------
+ * Crypto: true tick-by-tick via Binance Vision WebSocket (no polling delay).
+ * Forex/Stocks (Yahoo): 15s polling fallback. Skips during bar replay. */
+let liveWS = null;
+let liveTimer = null;
+function isCryptoSym(sym) {
+  return /USDT$|USDC$|BUSD$|BTC$|ETH$/.test(sym || "");
+}
+function patchLiveCandle(c) {
+  if (!c || !isFinite(c.time) || !state.candles || !state.candles.length || !state.candleSeries) return;
+  const lastLocal = state.candles[state.candles.length - 1];
+  if (c.time === lastLocal.time) {
+    Object.assign(lastLocal, { open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume });
+    state.candleSeries.update(lastLocal);
+  } else if (c.time > lastLocal.time) {
+    state.candles.push(c);
+    if (state.candles.length > 600) state.candles.shift();
+    state.candleSeries.update(c);
+  } else {
+    return;
+  }
+  applyPriceData();
+  applyIndicators();
+  const range = state.chart.timeScale().getVisibleLogicalRange();
+  if (range && range.to >= state.candles.length - 2) {
+    state.chart.timeScale().scrollToRealTime();
+  }
+}
+function onWSTick(k) {
+  if (window.TGReplay && window.TGReplay.active()) return;
+  const c = {
+    time: Math.floor(k.t / 1000),
+    open: parseFloat(k.o), high: parseFloat(k.h),
+    low: parseFloat(k.l), close: parseFloat(k.c),
+    volume: parseFloat(k.v),
+  };
+  patchLiveCandle(c);
+  // live price in the ticker line
+  const el = $("#tickerInfo");
+  if (el && isFinite(c.close)) {
+    const base = el.textContent.split("  ·  ")[0].split("  ").slice(0, 1).join("");
+    el.textContent = `${state.symbol}  $${Number(c.close).toLocaleString()}  · live`;
+  }
+}
+function connectLiveWS() {
+  closeLive();
+  if (!isCryptoSym(state.symbol)) { startPollFallback(); return; } // forex/stocks -> polling
+  try {
+    const stream = `${state.symbol.toLowerCase()}@kline_${state.timeframe}`;
+    liveWS = new WebSocket(`wss://stream.binance.vision/ws/${stream}`);
+    liveWS.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.k) onWSTick(msg.k);
+      } catch (_e) {}
+    };
+    liveWS.onerror = () => { startPollFallback(); };
+    liveWS.onclose = () => {
+      // reconnect after 5s if still on a crypto symbol and no fallback running
+      if (isCryptoSym(state.symbol) && !liveTimer) {
+        setTimeout(() => { if (isCryptoSym(state.symbol) && !liveWS) connectLiveWS(); }, 5000);
+      }
+    };
+  } catch (_e) { startPollFallback(); }
+}
+async function pollOnce() {
+  try {
+    if (window.TGReplay && window.TGReplay.active()) return;
+    if (!state.candles || !state.candles.length || !state.candleSeries) return;
+    const r = await fetch(`/api/market/klines?symbol=${state.symbol}&interval=${state.timeframe}&limit=3`);
+    if (!r.ok) return;
+    const j = await r.json();
+    const fresh = (j.candles || []).filter((c) => c && isFinite(c.time));
+    if (!fresh.length) return;
+    patchLiveCandle(fresh[fresh.length - 1]);
+    const t = await fetch(`/api/market/ticker?symbol=${state.symbol}`).then((x) => x.json()).catch(() => null);
+    if (t && t.lastPrice) {
+      const chg = t.priceChangePercent != null ? `  24h ${Number(t.priceChangePercent).toFixed(2)}%` : "";
+      $("#tickerInfo").textContent = `${state.symbol}  $${Number(t.lastPrice).toLocaleString()}${chg}  · ${t.source || ""}`;
+    }
+  } catch (_e) {}
+}
+function startPollFallback() {
+  if (liveTimer) return;
+  liveTimer = setInterval(pollOnce, 15000);
+}
+function closeLive() {
+  if (liveWS) { try { liveWS.close(); } catch (_e) {} liveWS = null; }
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+}
+function startLive() {
+  connectLiveWS();
 }
 
 function setHint(t) { const h = $("#chartHint"); if (h) h.textContent = t; }
@@ -952,6 +1048,7 @@ async function boot() {
   refreshExecStatus();
   refreshPositions();
   setInterval(refreshPositions, 30000);
+  startLive(); // live candle ticks every 15s — chart moves without refresh
   // watchlist (TradingView-style)
   safeInit("TGWatchlist", () => {
     if (window.TGWatchlist) window.TGWatchlist.init({
@@ -975,93 +1072,3 @@ function syncTf() {
   document.querySelectorAll("#tfBar .tf-btn").forEach((b) => b.classList.toggle("active", b.dataset.tf === state.timeframe));
 }
 document.addEventListener("DOMContentLoaded", boot);
-
-/* ---------- live price streaming ----------
- * Crypto: true tick-by-tick via Binance Vision WebSocket (no polling delay).
- * Forex/Stocks (Yahoo): 15s polling fallback. Skips during bar replay. */
-let liveWS = null;
-let liveTimer = null;
-function isCryptoSym(sym) {
-  return /USDT$|USDC$|BUSD$|BTC$|ETH$/.test(sym || "");
-}
-function patchLiveCandle(c) {
-  if (!c || !isFinite(c.time) || !state.candles || !state.candles.length || !state.candleSeries) return;
-  const lastLocal = state.candles[state.candles.length - 1];
-  if (c.time === lastLocal.time) {
-    Object.assign(lastLocal, { open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume });
-    state.candleSeries.update(lastLocal);
-  } else if (c.time > lastLocal.time) {
-    state.candles.push(c);
-    if (state.candles.length > 600) state.candles.shift();
-    state.candleSeries.update(c);
-  } else {
-    return;
-  }
-  applyPriceData();
-  applyIndicators();
-  const range = state.chart.timeScale().getVisibleLogicalRange();
-  if (range && range.to >= state.candles.length - 2) {
-    state.chart.timeScale().scrollToRealTime();
-  }
-}
-function onWSTick(k) {
-  if (window.TGReplay && window.TGReplay.active()) return;
-  const c = {
-    time: Math.floor(k.t / 1000),
-    open: parseFloat(k.o), high: parseFloat(k.h),
-    low: parseFloat(k.l), close: parseFloat(k.c),
-    volume: parseFloat(k.v),
-  };
-  patchLiveCandle(c);
-  const el = $("#tickerInfo");
-  if (el && isFinite(c.close)) {
-    el.textContent = `${state.symbol}  $${Number(c.close).toLocaleString()}  · live`;
-  }
-}
-function connectLiveWS() {
-  closeLive();
-  if (!isCryptoSym(state.symbol)) { startPollFallback(); return; }
-  try {
-    const stream = `${state.symbol.toLowerCase()}@kline_${state.timeframe}`;
-    liveWS = new WebSocket(`wss://stream.binance.vision/ws/${stream}`);
-    liveWS.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        if (msg.k) onWSTick(msg.k);
-      } catch (_e) {}
-    };
-    liveWS.onerror = () => { startPollFallback(); };
-    liveWS.onclose = () => {
-      if (isCryptoSym(state.symbol) && !liveTimer) {
-        setTimeout(() => { if (isCryptoSym(state.symbol) && !liveWS) connectLiveWS(); }, 5000);
-      }
-    };
-  } catch (_e) { startPollFallback(); }
-}
-async function pollOnce() {
-  try {
-    if (window.TGReplay && window.TGReplay.active()) return;
-    if (!state.candles || !state.candles.length || !state.candleSeries) return;
-    const r = await fetch(`/api/market/klines?symbol=${state.symbol}&interval=${state.timeframe}&limit=3`);
-    if (!r.ok) return;
-    const j = await r.json();
-    const fresh = (j.candles || []).filter((c) => c && isFinite(c.time));
-    if (!fresh.length) return;
-    patchLiveCandle(fresh[fresh.length - 1]);
-    const t = await fetch(`/api/market/ticker?symbol=${state.symbol}`).then((x) => x.json()).catch(() => null);
-    if (t && t.lastPrice) {
-      const chg = t.priceChangePercent != null ? `  24h ${Number(t.priceChangePercent).toFixed(2)}%` : "";
-      $("#tickerInfo").textContent = `${state.symbol}  $${Number(t.lastPrice).toLocaleString()}${chg}  · ${t.source || ""}`;
-    }
-  } catch (_e) {}
-}
-function startPollFallback() {
-  if (liveTimer) return;
-  liveTimer = setInterval(pollOnce, 15000);
-}
-function closeLive() {
-  if (liveWS) { try { liveWS.close(); } catch (_e) {} liveWS = null; }
-  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
-}
-function startLive() {
-  connectLiveWS();
