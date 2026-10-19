@@ -975,3 +975,47 @@ function syncTf() {
   document.querySelectorAll("#tfBar .tf-btn").forEach((b) => b.classList.toggle("active", b.dataset.tf === state.timeframe));
 }
 document.addEventListener("DOMContentLoaded", boot);
+
+/* ---------- live candle refresh ----------
+ * Polls the last 2 candles every 15s and patches the live candle in place,
+ * so the chart ticks without a page refresh. Skips during bar replay. */
+let liveTimer = null;
+async function refreshLive() {
+  try {
+    if (window.TGReplay && window.TGReplay.active()) return;
+    if (!state.candles || !state.candles.length || !state.candleSeries) return;
+    const r = await fetch(`/api/market/klines?symbol=${state.symbol}&interval=${state.timeframe}&limit=3`);
+    if (!r.ok) return;
+    const j = await r.json();
+    const fresh = (j.candles || []).filter((c) => c && isFinite(c.time));
+    if (!fresh.length) return;
+    const lastFresh = fresh[fresh.length - 1];
+    const lastLocal = state.candles[state.candles.length - 1];
+    if (lastFresh.time === lastLocal.time) {
+      Object.assign(lastLocal, { open: lastFresh.open, high: lastFresh.high, low: lastFresh.low, close: lastFresh.close, volume: lastFresh.volume });
+      state.candleSeries.update(lastLocal);
+    } else if (lastFresh.time > lastLocal.time) {
+      state.candles.push(lastFresh);
+      if (state.candles.length > 600) state.candles.shift();
+      state.candleSeries.update(lastFresh);
+    } else {
+      return;
+    }
+    applyPriceData();
+    applyIndicators();
+    const t = await fetch(`/api/market/ticker?symbol=${state.symbol}`).then((x) => x.json()).catch(() => null);
+    if (t && t.lastPrice) {
+      const chg = t.priceChangePercent != null ? `  24h ${Number(t.priceChangePercent).toFixed(2)}%` : "";
+      $("#tickerInfo").textContent = `${state.symbol}  $${Number(t.lastPrice).toLocaleString()}${chg}  · ${t.source || ""}`;
+    }
+    const range = state.chart.timeScale().getVisibleLogicalRange();
+    if (range && range.to >= state.candles.length - 2) {
+      state.chart.timeScale().scrollToRealTime();
+    }
+  } catch (_e) { }
+}
+function startLive() {
+  if (liveTimer) clearInterval(liveTimer);
+  liveTimer = setInterval(refreshLive, 15000);
+}
+document.addEventListener("DOMContentLoaded", () => startLive());
