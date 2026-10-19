@@ -222,7 +222,7 @@ function mkLine(pane, color, width, title) {
 }
 function applyIndicators() {
   clearIndSeries();
-  const C = viewCandles(); // replay-aware: indicators recompute on the visible slice
+  const C = cleanCandles(viewCandles()); // same cleaned data as price series — keeps them in sync
   if (!C.length) return;
   const closes = C.map((c) => c.close);
   for (const ind of state.indicators) {
@@ -387,12 +387,8 @@ function addIndicator(type) {
   if (type === "willr") base.period = 14;
   if (type === "obv") base.period = 0; // no period
   if (type === "psar") base.period = 0; // fixed 0.02/0.2
-  if (base.period > 0 || type === "macd" || type === "supertrend") {
-    const p = prompt(`Period for ${IND_DEFS[type].label} (default ${base.period || `${base.fast},${base.slow},${base.signal}`}) :`, base.period || "");
-    if (p === null) return;
-    const n = parseInt(p, 10);
-    if (n > 0) base.period = n;
-  }
+  // NOTE: no prompt() — it gets auto-dismissed on mobile/desktop and silently
+  // aborts the add. Defaults are applied; user can remove + re-add for now.
   state.indicators.push(base);
   applyIndicators(); scheduleSave();
 }
