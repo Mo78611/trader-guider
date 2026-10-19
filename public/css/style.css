@@ -11,7 +11,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 a{color:var(--accent);text-decoration:none}
 
 /* top bar */
-.topbar{height:52px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--border)}
+.topbar{height:52px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--border);position:relative;z-index:100}
 .logo{font-weight:800;font-size:18px;letter-spacing:.5px;color:var(--gold)}
 .logo small{color:var(--dim);font-weight:400;font-size:12px;margin-left:6px}
 .topbar .spacer{flex:1}
@@ -19,7 +19,7 @@ a{color:var(--accent);text-decoration:none}
 .tf-btn.active,.tf-btn:hover{color:var(--text);border-color:var(--gold)}
 .symbol-box{display:flex;align-items:center;gap:6px}
 .symbol-box input{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;width:150px;font-size:14px;font-weight:600}
-.pill{font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--dim)}
+.pill{font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--dim);white-space:nowrap;flex-shrink:0}
 .pill.ok{color:var(--green);border-color:var(--green)}
 .pill.bad{color:var(--red);border-color:var(--red)}
 .topbar button.link{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px}
