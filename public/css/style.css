@@ -288,8 +288,6 @@ table.mini th{color:var(--dim);font-weight:400}
 }
 
 /* ---- Live Strategy Estimator (near ◈ Methodologies menu) ---- */
-.est-wrap{position:absolute;top:40px;left:0;background:var(--panel);border:1px solid var(--gold);border-radius:10px;padding:0;min-width:260px;max-width:300px;display:none;z-index:61;box-shadow:0 8px 24px rgba(0,0,0,.55),0 0 12px rgba(212,169,78,.15)}
-.est-head{padding:9px 12px;font-size:13px;font-weight:700;color:var(--gold);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
 .est-body{padding:4px 12px 12px}
 .est-line{font-size:13px;margin:4px 0;color:var(--text)}
 .est-meter{height:10px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin:8px 0 4px}

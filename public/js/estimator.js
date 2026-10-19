@@ -105,14 +105,18 @@ window.TGEstimator = (function () {
 
   function build() {
     if (S.built) return;
-    var wrap = document.querySelector(".method-wrap");
-    if (!wrap) return;
+    // Proper placement (user rule 2026-10-19): the estimator is a PANEL below
+    // the chart, never an overlay in the topbar. It sits in the .panels grid
+    // right after the execution section — on PC it shares the grid row,
+    // on mobile it stacks like every other panel.
+    var panels = document.querySelector(".panels");
+    if (!panels || document.getElementById("estWrap")) return;
     var div = document.createElement("div");
     div.id = "estWrap";
-    div.className = "est-wrap";
+    div.className = "sec";
     div.style.display = "none";
     div.innerHTML =
-      '<div class="est-head" id="estHead">📊 Live estimate <span class="chev">▾</span></div>' +
+      '<h3 style="cursor:pointer" id="estHead">📊 Live estimate <span class="chev">▾</span></h3>' +
       '<div class="est-body" id="estBody">' +
         '<div class="est-line" id="estFreq"></div>' +
         '<div class="est-line" id="estWin"></div>' +
@@ -120,7 +124,12 @@ window.TGEstimator = (function () {
         '<div class="est-tip" id="estTip"></div>' +
         '<div class="est-note">Estimates from model — not guarantees.</div>' +
       "</div>";
-    wrap.appendChild(div);
+    var exec = document.getElementById("execSec");
+    if (exec && exec.parentNode === panels && exec.nextSibling) {
+      panels.insertBefore(div, exec.nextSibling);
+    } else {
+      panels.prepend(div);
+    }
     document.getElementById("estHead").onclick = function () {
       S.collapsed = !S.collapsed;
       document.getElementById("estBody").style.display = S.collapsed ? "none" : "block";
