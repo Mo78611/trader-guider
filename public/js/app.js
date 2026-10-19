@@ -976,11 +976,69 @@ function syncTf() {
 }
 document.addEventListener("DOMContentLoaded", boot);
 
-/* ---------- live candle refresh ----------
- * Polls the last 2 candles every 15s and patches the live candle in place,
- * so the chart ticks without a page refresh. Skips during bar replay. */
+/* ---------- live price streaming ----------
+ * Crypto: true tick-by-tick via Binance Vision WebSocket (no polling delay).
+ * Forex/Stocks (Yahoo): 15s polling fallback. Skips during bar replay. */
+let liveWS = null;
 let liveTimer = null;
-async function refreshLive() {
+function isCryptoSym(sym) {
+  return /USDT$|USDC$|BUSD$|BTC$|ETH$/.test(sym || "");
+}
+function patchLiveCandle(c) {
+  if (!c || !isFinite(c.time) || !state.candles || !state.candles.length || !state.candleSeries) return;
+  const lastLocal = state.candles[state.candles.length - 1];
+  if (c.time === lastLocal.time) {
+    Object.assign(lastLocal, { open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume });
+    state.candleSeries.update(lastLocal);
+  } else if (c.time > lastLocal.time) {
+    state.candles.push(c);
+    if (state.candles.length > 600) state.candles.shift();
+    state.candleSeries.update(c);
+  } else {
+    return;
+  }
+  applyPriceData();
+  applyIndicators();
+  const range = state.chart.timeScale().getVisibleLogicalRange();
+  if (range && range.to >= state.candles.length - 2) {
+    state.chart.timeScale().scrollToRealTime();
+  }
+}
+function onWSTick(k) {
+  if (window.TGReplay && window.TGReplay.active()) return;
+  const c = {
+    time: Math.floor(k.t / 1000),
+    open: parseFloat(k.o), high: parseFloat(k.h),
+    low: parseFloat(k.l), close: parseFloat(k.c),
+    volume: parseFloat(k.v),
+  };
+  patchLiveCandle(c);
+  const el = $("#tickerInfo");
+  if (el && isFinite(c.close)) {
+    el.textContent = `${state.symbol}  $${Number(c.close).toLocaleString()}  · live`;
+  }
+}
+function connectLiveWS() {
+  closeLive();
+  if (!isCryptoSym(state.symbol)) { startPollFallback(); return; }
+  try {
+    const stream = `${state.symbol.toLowerCase()}@kline_${state.timeframe}`;
+    liveWS = new WebSocket(`wss://stream.binance.vision/ws/${stream}`);
+    liveWS.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.k) onWSTick(msg.k);
+      } catch (_e) {}
+    };
+    liveWS.onerror = () => { startPollFallback(); };
+    liveWS.onclose = () => {
+      if (isCryptoSym(state.symbol) && !liveTimer) {
+        setTimeout(() => { if (isCryptoSym(state.symbol) && !liveWS) connectLiveWS(); }, 5000);
+      }
+    };
+  } catch (_e) { startPollFallback(); }
+}
+async function pollOnce() {
   try {
     if (window.TGReplay && window.TGReplay.active()) return;
     if (!state.candles || !state.candles.length || !state.candleSeries) return;
@@ -989,33 +1047,21 @@ async function refreshLive() {
     const j = await r.json();
     const fresh = (j.candles || []).filter((c) => c && isFinite(c.time));
     if (!fresh.length) return;
-    const lastFresh = fresh[fresh.length - 1];
-    const lastLocal = state.candles[state.candles.length - 1];
-    if (lastFresh.time === lastLocal.time) {
-      Object.assign(lastLocal, { open: lastFresh.open, high: lastFresh.high, low: lastFresh.low, close: lastFresh.close, volume: lastFresh.volume });
-      state.candleSeries.update(lastLocal);
-    } else if (lastFresh.time > lastLocal.time) {
-      state.candles.push(lastFresh);
-      if (state.candles.length > 600) state.candles.shift();
-      state.candleSeries.update(lastFresh);
-    } else {
-      return;
-    }
-    applyPriceData();
-    applyIndicators();
+    patchLiveCandle(fresh[fresh.length - 1]);
     const t = await fetch(`/api/market/ticker?symbol=${state.symbol}`).then((x) => x.json()).catch(() => null);
     if (t && t.lastPrice) {
       const chg = t.priceChangePercent != null ? `  24h ${Number(t.priceChangePercent).toFixed(2)}%` : "";
       $("#tickerInfo").textContent = `${state.symbol}  $${Number(t.lastPrice).toLocaleString()}${chg}  · ${t.source || ""}`;
     }
-    const range = state.chart.timeScale().getVisibleLogicalRange();
-    if (range && range.to >= state.candles.length - 2) {
-      state.chart.timeScale().scrollToRealTime();
-    }
-  } catch (_e) { }
+  } catch (_e) {}
+}
+function startPollFallback() {
+  if (liveTimer) return;
+  liveTimer = setInterval(pollOnce, 15000);
+}
+function closeLive() {
+  if (liveWS) { try { liveWS.close(); } catch (_e) {} liveWS = null; }
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
 }
 function startLive() {
-  if (liveTimer) clearInterval(liveTimer);
-  liveTimer = setInterval(refreshLive, 15000);
-}
-document.addEventListener("DOMContentLoaded", () => startLive());
+  connectLiveWS();
