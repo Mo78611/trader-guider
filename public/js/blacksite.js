@@ -63,6 +63,7 @@ window.TGBlacksit = (function () {
     if (!d) return;
     d.classList.add("open");
     S.open = true;
+    try { d.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (_e) {}
     refreshTab();
   }
   function close() {

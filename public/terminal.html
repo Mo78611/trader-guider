@@ -75,6 +75,31 @@
   <!-- ALL PANELS BELOW the chart, in user-specified order:
        1 execution, 2 signals (injected by method-ui.js), 3 positions, 4 indicators, 5 hub -->
   <div class="panels">
+  <!-- ◤ THE BLACKSITE ◢ — inline section below the chart (user rule 2026-10-19: no popup) -->
+  <div class="blacksite-drawer" id="blacksiteDrawer">
+  <div class="blacksite-head">
+    <h2>◤ THE BLACKSITE ◢</h2>
+    <button class="x" id="blacksiteClose" title="Close">×</button>
+  </div>
+  <div class="blacksite-sub">Experimental lab. Estimates and studies only — not signals, not financial advice.</div>
+  <div class="blacksite-tabs">
+    <button class="blacksite-tab active" data-tab="ghosts">👻 Ghosts</button>
+    <button class="blacksite-tab" data-tab="fractures">💥 Fractures</button>
+    <button class="blacksite-tab" data-tab="echo">🔁 Echo</button>
+    <button class="blacksite-tab" data-tab="spring">🌀 Spring</button>
+  </div>
+  <div class="blacksite-body">
+    <div class="blacksite-pane" data-pane="ghosts" id="bsGhosts"></div>
+    <div class="blacksite-pane" data-pane="fractures" id="bsFractures" style="display:none"></div>
+    <div class="blacksite-pane" data-pane="echo" style="display:none">
+      <button class="btn blacksite-btn2" id="bsEchoBtn">🔁 Scan current chart for rhymes</button>
+      <div class="blacksite-note">Compares the last 30 bars with this symbol's own history. Finds similar shapes and shows what happened next.</div>
+      <div id="bsEchoOut" style="margin-top:10px"></div>
+    </div>
+    <div class="blacksite-pane" data-pane="spring" id="bsSpring" style="display:none"></div>
+  </div>
+</div>
+
     <div class="sec" id="execSec">
       <h3>One-click execution</h3>
       <div class="row">
@@ -257,30 +282,7 @@
 <script src="/js/footprints.js"></script>
 <script src="/js/tiltlock.js"></script>
 <script src="/js/copier.js"></script>
-<!-- ◤ THE BLACKSITE ◢ — exclusive experimental section (own drawer, not in ◈ menu) -->
-<div class="blacksite-drawer" id="blacksiteDrawer">
-  <div class="blacksite-head">
-    <h2>◤ THE BLACKSITE ◢</h2>
-    <button class="x" id="blacksiteClose" title="Close">×</button>
-  </div>
-  <div class="blacksite-sub">Experimental lab. Estimates and studies only — not signals, not financial advice.</div>
-  <div class="blacksite-tabs">
-    <button class="blacksite-tab active" data-tab="ghosts">👻 Ghosts</button>
-    <button class="blacksite-tab" data-tab="fractures">💥 Fractures</button>
-    <button class="blacksite-tab" data-tab="echo">🔁 Echo</button>
-    <button class="blacksite-tab" data-tab="spring">🌀 Spring</button>
-  </div>
-  <div class="blacksite-body">
-    <div class="blacksite-pane" data-pane="ghosts" id="bsGhosts"></div>
-    <div class="blacksite-pane" data-pane="fractures" id="bsFractures" style="display:none"></div>
-    <div class="blacksite-pane" data-pane="echo" style="display:none">
-      <button class="btn blacksite-btn2" id="bsEchoBtn">🔁 Scan current chart for rhymes</button>
-      <div class="blacksite-note">Compares the last 30 bars with this symbol's own history. Finds similar shapes and shows what happened next.</div>
-      <div id="bsEchoOut" style="margin-top:10px"></div>
-    </div>
-    <div class="blacksite-pane" data-pane="spring" id="bsSpring" style="display:none"></div>
-  </div>
-</div>
+
 
 <script src="/js/estimator.js"></script>
 <script src="/js/blacksite.js"></script>
