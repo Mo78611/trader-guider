@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strategy Lab — Trader Guider</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+.lab-wrap{max-width:1100px;margin:0 auto;padding:14px}
+.lab-tabs{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+.lab-tab{padding:9px 18px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card);color:var(--dim);cursor:pointer;font-size:14px;font-weight:600}
+.lab-tab.active{background:rgba(212,169,78,.14);color:var(--gold);border-color:var(--gold)}
+.cond-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin:10px 0}
+.cond-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);
+  border-radius:10px;background:var(--panel);cursor:pointer;font-size:13.5px}
+.cond-item.on{border-color:var(--gold);background:rgba(212,169,78,.1)}
+.cond-item input{accent-color:var(--gold);width:16px;height:16px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:12px 0}
+.stat-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.stat-box .v{font-size:22px;font-weight:700;color:var(--gold)}
+.stat-box .l{font-size:11.5px;color:var(--dim);margin-top:4px}
+.stat-box .v.good{color:var(--green)}.stat-box .v.bad{color:var(--red)}
+#equitySvg{width:100%;height:180px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+table.mini{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+table.mini th,table.mini td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+table.mini th{color:var(--dim);font-weight:600}
+.warn-line{background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.4);color:#ef9a9a;
+  padding:10px 14px;border-radius:10px;margin:10px 0;font-size:13.5px}
+.ok-line{background:rgba(38,166,154,.1);border:1px solid rgba(38,166,154,.4);color:#80cbc4;
+  padding:10px 14px;border-radius:10px;margin:10px 0;font-size:13.5px}
+.logic-row{display:flex;gap:14px;align-items:center;margin:10px 0;flex-wrap:wrap}
+.logic-row label{display:flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
+.logic-row input[type=radio]{accent-color:var(--gold)}
+.disclaimer{color:var(--dim);font-size:12px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-name" style="font-size:17px">Trader Guider</span>
+  </div>
+  <button class="link" onclick="location.href='/terminal'">← Terminal</button>
+  <button class="link" onclick="location.href='/hub'">Analysis Hub</button>
+  <div class="spacer"></div>
+  <span id="labUser" style="color:var(--dim);font-size:13px"></span>
+  <button class="link" id="logoutBtn">Logout</button>
+</div>
+
+<div class="lab-wrap">
+  <h2 style="margin:6px 0">🧪 Strategy Lab</h2>
+  <div style="color:var(--dim);font-size:13px">Build your own strategy, test it on real history. Not financial advice.</div>
+
+  <div class="lab-tabs">
+    <button class="lab-tab active" data-tab="lab">🧪 Strategy Lab</button>
+    <button class="lab-tab" data-tab="foot">👣 Footprints</button>
+    <button class="lab-tab" data-tab="dna">🧬 Session DNA</button>
+  </div>
+
+  <!-- ============ STRATEGY LAB ============ -->
+  <div id="tab-lab" class="sec">
+    <h3>Pick 2–5 conditions</h3>
+    <div class="logic-row">
+      <span style="color:var(--dim)">How should they line up?</span>
+      <label><input type="radio" name="logic" value="AND" checked> AND — all must fire together</label>
+      <label><input type="radio" name="logic" value="OR"> OR — any one fires</label>
+    </div>
+    <div class="cond-grid" id="condGrid"></div>
+    <div class="row" style="gap:10px;flex-wrap:wrap">
+      <input id="labSymbol" class="sym-input" placeholder="SYMBOL" value="BTCUSDT" style="max-width:140px">
+      <select id="labTf">
+        <option value="15m">15m</option><option value="1h" selected>1h</option>
+        <option value="4h">4h</option><option value="1d">1d</option>
+      </select>
+      <select id="labLook">
+        <option value="500" selected>500 bars</option>
+        <option value="1000">1000 bars</option>
+        <option value="2000">2000 bars</option>
+      </select>
+      <button class="btn primary" id="runBt">▶ Run backtest</button>
+    </div>
+    <div id="btStatus" style="margin-top:10px;color:var(--dim);font-size:13px"></div>
+    <div id="btResult" style="display:none">
+      <h3>Result</h3>
+      <div class="stat-grid" id="btStats"></div>
+      <h4 style="margin:8px 0 4px">Equity curve (R)</h4>
+      <svg id="equitySvg" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+      <h4 style="margin:12px 0 4px">Per-condition contribution</h4>
+      <table class="mini"><thead><tr><th>Condition</th><th>Trades</th><th>Wins</th><th>Win %</th></tr></thead>
+      <tbody id="btConds"></tbody></table>
+      <h4 style="margin:12px 0 4px">Recent trades</h4>
+      <table class="mini"><thead><tr><th>Time</th><th>Dir</th><th>Entry</th><th>R</th><th>Conditions</th></tr></thead>
+      <tbody id="btTrades"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ============ FOOTPRINTS ============ -->
+  <div id="tab-foot" class="sec" style="display:none">
+    <h3>👣 Your smart-money footprints</h3>
+    <div style="color:var(--dim);font-size:13px;margin-bottom:10px">
+      Every drawing you make on the chart and every signal you ⭐ is saved here.
+      The engine checks what price did after each one — so you learn which of
+      <em>your</em> setups actually work, in which session.
+    </div>
+    <div class="row" style="gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <input id="fpSymbol" class="sym-input" placeholder="SYMBOL" value="BTCUSDT" style="max-width:130px">
+      <select id="fpTf"><option value="15m">15m</option><option value="1h" selected>1h</option>
+        <option value="4h">4h</option><option value="1d">1d</option></select>
+      <input id="fpNote" placeholder="Note (optional)" style="flex:1;min-width:140px">
+      <button class="btn" id="fpAdd">＋ Log current chart</button>
+      <button class="btn" id="fpReload">↻ Refresh stats</button>
+    </div>
+    <div id="fpStatus" style="color:var(--dim);font-size:13px"></div>
+    <div id="fpStats"></div>
+    <h4 style="margin:12px 0 4px">Recent footprints</h4>
+    <table class="mini"><thead><tr><th>Type</th><th>Symbol</th><th>Session</th><th>Price</th>
+      <th>MFE (ATR)</th><th>MAE (ATR)</th><th></th></tr></thead>
+    <tbody id="fpList"></tbody></table>
+  </div>
+
+  <!-- ============ SESSION DNA ============ -->
+  <div id="tab-dna" class="sec" style="display:none">
+    <h3>🧬 Session DNA</h3>
+    <div style="color:var(--dim);font-size:13px;margin-bottom:10px">
+      Each session has its own personality. DNA shows the average range,
+      how often sweeps happen, and how often price reverses after a sweep —
+      learned from the last 30 days.
+    </div>
+    <div class="row" style="gap:10px">
+      <input id="dnaSymbol" class="sym-input" placeholder="SYMBOL" value="BTCUSDT" style="max-width:140px">
+      <button class="btn primary" id="dnaLoad">Load DNA</button>
+    </div>
+    <div id="dnaWarn"></div>
+    <table class="mini"><thead><tr><th>Session (UTC)</th><th>Avg range (ATR)</th>
+      <th>Sweeps / day</th><th>Reversal after sweep</th><th>Bars learned</th></tr></thead>
+    <tbody id="dnaTable"><tr><td colspan="5" style="color:var(--dim)">Press Load DNA.</td></tr></tbody></table>
+  </div>
+
+  <div class="disclaimer">Not financial advice. Backtests use past candles — past results do not predict the future. Trade at your own risk.</div>
+</div>
+
+<script src="/js/lab.js"></script>
+</body>
+</html>

@@ -98,9 +98,23 @@ window.TGMethodUI = (function () {
         midnight: "True midnight open line",
       },
     },
+    displacement: {
+      label: "Displacement Radar", color: "#00e5a0",
+      settings: {
+        glow: "Glow strong legs (⚡)",
+        panel: "Top legs panel",
+      },
+    },
+    magnets: {
+      label: "Sweep Magnets", color: "#f0b429",
+      settings: {
+        magnets: "Liquidity magnets (🧲)",
+      },
+    },
   };
   // settings keys whose value is a string, not a boolean (persisted as-is)
-  const STR_SETTINGS = { smt: { refSymbol: "BTCUSDT" } };
+  const STR_SETTINGS = { smt: { refSymbol: "BTCUSDT" },
+    displacement: { minScore: "75" }, magnets: { minScore: "50" } };
   const EVAL_METHODS = ["ict", "smc", "vsa", "priceaction", "trendsr"]; // can emit signals
   const SERIES_CAP = 140;
   const TF_SEC = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "4h": 14400, "1d": 86400, "1w": 604800 };
@@ -625,7 +639,8 @@ window.TGMethodUI = (function () {
     const rc = newRC();
     for (const key of Object.keys(METHODS)) {
       const st = S.methods[key];
-      if (!st || !st.enabled || key === "sentiment" || key === "smt" || key === "kzones") continue;
+      if (!st || !st.enabled || key === "sentiment" || key === "smt" || key === "kzones" ||
+          key === "displacement" || key === "magnets") continue;
       renderMethod(key, st, ctx, rc, t0, t1, lo, hi);
     }
     // overlay modules manage their own rendering (async data / HTML overlays)
@@ -636,6 +651,14 @@ window.TGMethodUI = (function () {
     try {
       const kzSt = S.methods.kzones;
       if (window.TGKZ) window.TGKZ.apply(!!(kzSt && kzSt.enabled), kzSt ? kzSt.settings : {});
+    } catch (_e) {}
+    try {
+      const dSt = S.methods.displacement;
+      if (window.TGDisplacement) window.TGDisplacement.apply(!!(dSt && dSt.enabled), dSt ? dSt.settings : {});
+    } catch (_e) {}
+    try {
+      const mSt = S.methods.magnets;
+      if (window.TGMagnets) window.TGMagnets.apply(!!(mSt && mSt.enabled), mSt ? mSt.settings : {});
     } catch (_e) {}
     // sentiment & news zones (own async data path)
     try { renderSentiment(rc, t0, t1, lo, hi); } catch (_e) {}
@@ -808,7 +831,7 @@ window.TGMethodUI = (function () {
     if (!panels || document.getElementById("sigSec")) return;
     const sec = document.createElement("div");
     sec.className = "sec"; sec.id = "sigSec";
-    sec.innerHTML = `<h3>Signals <button class="btn" id="sigRefresh" style="padding:3px 8px;font-size:11px" title="Re-evaluate now">↻</button></h3>
+    sec.innerHTML = `<h3>Signals <button class="btn" id="sigRefresh" style="padding:3px 8px;font-size:11px" title="Re-evaluate now">↻</button> <button class="btn" id="sigStar" style="padding:3px 8px;font-size:11px" title="Save this setup to Footprints">⭐</button> <span class="mini-note" id="sigMsg"></span></h3>
       <div id="sigBody"><div style="color:var(--dim);font-size:12px">Enable a methodology to generate signals.</div></div>`;
     const exec = document.getElementById("execSec");
     if (exec && exec.parentNode === panels && exec.nextSibling) {
@@ -819,6 +842,15 @@ window.TGMethodUI = (function () {
       panels.prepend(sec);
     }
     document.getElementById("sigRefresh").onclick = () => { invalidateCache(); renderAll(); };
+    document.getElementById("sigStar").onclick = async () => {
+      const el = document.getElementById("sigMsg");
+      if (el) el.textContent = "Saving…";
+      let r = { ok: false, msg: "Save failed." };
+      try {
+        if (window.TGFootprints) r = await window.TGFootprints.logSignal();
+      } catch (_e) {}
+      if (el) { el.textContent = r.msg; setTimeout(() => { if (el) el.textContent = ""; }, 4000); }
+    };
   }
 
   /* ---------------- init ---------------- */

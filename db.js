@@ -58,7 +58,7 @@ function toPg(sql) {
 }
 // Tables whose INSERTs need the new id back (RETURNING id on pg).
 const ID_TABLES = new Set(["users", "api_credentials", "analyses", "paper_trades",
-  "mt5_accounts", "binance_accounts"]);
+  "mt5_accounts", "binance_accounts", "footprints"]);
 
 const db = {
   isPostgres,
@@ -231,6 +231,32 @@ async function ensureSchema() {
         snooze_until TIMESTAMPTZ,
         updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS footprints (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type        TEXT NOT NULL DEFAULT 'manual',
+        symbol      TEXT NOT NULL DEFAULT '',
+        timeframe   TEXT NOT NULL DEFAULT '1h',
+        session     TEXT NOT NULL DEFAULT '',
+        price       DOUBLE PRECISION NOT NULL DEFAULT 0,
+        time        BIGINT NOT NULL DEFAULT 0,
+        dir         TEXT NOT NULL DEFAULT '',
+        note        TEXT NOT NULL DEFAULT '',
+        mfe_atr     DOUBLE PRECISION,
+        mae_atr     DOUBLE PRECISION,
+        ret_dir     INTEGER,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS session_dna (
+        symbol      TEXT NOT NULL,
+        session     TEXT NOT NULL,
+        avg_range_atr DOUBLE PRECISION,
+        sweep_freq_per_day DOUBLE PRECISION,
+        reversal_pct DOUBLE PRECISION,
+        samples     INTEGER NOT NULL DEFAULT 0,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (symbol, session)
+      );
     `);
     // Migration: exit_price/pnl on paper_trades for the tilt-lock loss tracker.
     await db.exec("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS exit_price DOUBLE PRECISION");
@@ -349,6 +375,32 @@ async function ensureSchema() {
         locked_until TEXT,
         snooze_until TEXT,
         updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS footprints (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type         TEXT NOT NULL DEFAULT 'manual',
+        symbol       TEXT NOT NULL DEFAULT '',
+        timeframe    TEXT NOT NULL DEFAULT '1h',
+        session      TEXT NOT NULL DEFAULT '',
+        price        REAL NOT NULL DEFAULT 0,
+        time         INTEGER NOT NULL DEFAULT 0,
+        dir          TEXT NOT NULL DEFAULT '',
+        note         TEXT NOT NULL DEFAULT '',
+        mfe_atr      REAL,
+        mae_atr      REAL,
+        ret_dir      INTEGER,
+        created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS session_dna (
+        symbol       TEXT NOT NULL,
+        session      TEXT NOT NULL,
+        avg_range_atr REAL,
+        sweep_freq_per_day REAL,
+        reversal_pct REAL,
+        samples      INTEGER NOT NULL DEFAULT 0,
+        updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (symbol, session)
       );
     `);
     // Migration: exit_price/pnl on paper_trades for the tilt-lock loss tracker.

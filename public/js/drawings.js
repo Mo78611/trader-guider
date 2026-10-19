@@ -90,6 +90,35 @@ window.TGDrawings = (function () {
             made.push(addLine([{ time: t, price: lo }, { time: t, price: hi }],
               { color: d.color, lineWidth: 1, lineStyle: 2 }));
           }
+        } else if (d.kind === "whatif" && d.points.length >= 2) {
+          // What-if projector: user path + ATR probability cones.
+          // 68% cone = ±1×ATR√n, 95% = ±2×ATR√n around the drawn path.
+          const pts = d.points;
+          made.push(addLine(pts, { color: "#00e5a0", lineWidth: 2, title: "what-if path" }));
+          const atr = atrLast();
+          const tf = tfSeconds();
+          if (atr > 0 && tf > 0) {
+            const t0 = pts[0].time;
+            const totalBars = Math.max(1, Math.round((pts[pts.length - 1].time - t0) / tf));
+            for (const k of [1, 2]) {
+              const up = [], dn = [];
+              for (const p of pts) {
+                const bars = Math.max(1, Math.round((p.time - t0) / tf));
+                const w = k * atr * Math.sqrt(bars);
+                up.push({ time: p.time, price: p.price + w });
+                dn.push({ time: p.time, price: p.price - w });
+              }
+              const col = k === 1 ? "rgba(38,166,154,0.5)" : "rgba(239,83,80,0.45)";
+              made.push(addLine(up, { color: col, lineWidth: 1, lineStyle: 2,
+                title: k === 1 ? "68% cone" : "95% cone" }));
+              made.push(addLine(dn, { color: col, lineWidth: 1, lineStyle: 2 }));
+            }
+            const move = Math.abs(pts[pts.length - 1].price - pts[0].price);
+            const a68 = atr * Math.sqrt(totalBars), a95 = 2 * atr * Math.sqrt(totalBars);
+            const verdict = move <= a68 ? "realistic" : move <= a95 ? "stretched" : "fantasy";
+            markers.push({ time: pts[pts.length - 1].time, position: "inBar",
+              color: "#d4a94e", shape: "text", text: "what-if: " + verdict });
+          }
         }
         if (made.length) S.seriesById.set(d.id, made);
       }
@@ -98,8 +127,39 @@ window.TGDrawings = (function () {
 
     function uid() { return "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
 
+    function atrLast() {
+      const cs = S.getCandles();
+      const n = cs.length;
+      if (n < 15) return 0;
+      const trs = [0];
+      for (let i = 1; i < n; i++) {
+        const h = cs[i].high, l = cs[i].low, pc = cs[i - 1].close;
+        trs.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+      }
+      let prev = 0;
+      for (let i = 1; i <= 14; i++) prev += trs[i];
+      prev /= 14;
+      for (let i = 15; i < n; i++) prev = (prev * 13 + trs[i]) / 14;
+      return prev;
+    }
+
+    function tfSeconds() {
+      const cs = S.getCandles();
+      if (cs.length < 3) return 3600;
+      const ds = [];
+      for (let i = 1; i < Math.min(cs.length, 20); i++) ds.push(cs[i].time - cs[i - 1].time);
+      ds.sort((a, b) => a - b);
+      return ds[Math.floor(ds.length / 2)] || 3600;
+    }
+
+    function logDrawing(kind, pt) {
+      try {
+        if (window.TGFootprints) window.TGFootprints.log("drawing:" + kind, { price: pt.price, time: pt.time });
+      } catch (_e) {}
+    }
+
     function setTool(t) {
-      S.tool = t; S.pending = null; S.pendingPts = null;
+      S.tool = t; S.pending = null; S.pendingPts = null; S.pendingId = null;
       document.querySelectorAll(".tool").forEach((el) => el.classList.toggle("active", el.dataset.tool === t));
       const hints = {
         cursor: "Click a tool on the left to start drawing.",
@@ -110,6 +170,7 @@ window.TGDrawings = (function () {
         rect: "Rectangle: click two opposite corners.",
         channel: "Parallel channel: click two points for the main line, then a third point for the parallel.",
         vline: "Vertical line: click a bar to mark the time.",
+        whatif: "What-if path: click points along your imagined path. Switch tool when done.",
         eraser: "Eraser: click near a drawing to delete it.",
       };
       const h = document.getElementById("chartHint");
@@ -150,20 +211,40 @@ window.TGDrawings = (function () {
 
       if (S.tool === "hline") {
         S.drawings.push({ id: uid(), kind: "hline", points: [pt], text: price.toFixed(2), color });
+        logDrawing("hline", pt);
         render(); S.onChange(); setTool("cursor");
       } else if (S.tool === "text") {
         const t = prompt("Label text:", "");
-        if (t) { S.drawings.push({ id: uid(), kind: "text", points: [pt], text: t.slice(0, 60), color }); }
+        if (t) {
+          S.drawings.push({ id: uid(), kind: "text", points: [pt], text: t.slice(0, 60), color });
+          logDrawing("text", pt);
+        }
         render(); S.onChange(); setTool("cursor");
       } else if (S.tool === "vline") {
         S.drawings.push({ id: uid(), kind: "vline", points: [pt], text: "", color });
+        logDrawing("vline", pt);
         render(); S.onChange(); setTool("cursor");
+      } else if (S.tool === "whatif") {
+        // freehand path: every click appends to the same drawing until the tool changes
+        let d = S.pendingId ? S.drawings.find((x) => x.id === S.pendingId) : null;
+        if (!d) {
+          d = { id: uid(), kind: "whatif", points: [pt], text: "", color: "#00e5a0" };
+          S.drawings.push(d);
+          S.pendingId = d.id;
+          logDrawing("whatif", pt);
+        } else {
+          d.points.push(pt);
+        }
+        render(); S.onChange();
+        // stays active — user switches tool when the path is done
       } else if (S.tool === "trendline" || S.tool === "fib" || S.tool === "rect" || S.tool === "channel") {
         if (!S.pendingPts) S.pendingPts = [];
         S.pendingPts.push(pt);
         const need = S.tool === "channel" ? 3 : 2;
         if (S.pendingPts.length >= need) {
-          S.drawings.push({ id: uid(), kind: S.tool, points: S.pendingPts.slice(0, need), text: "", color });
+          const kind = S.tool;
+          S.drawings.push({ id: uid(), kind, points: S.pendingPts.slice(0, need), text: "", color });
+          logDrawing(kind, pt);
           S.pendingPts = null;
           render(); S.onChange(); setTool("cursor");
         }

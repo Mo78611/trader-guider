@@ -31,6 +31,7 @@
   <span id="mt5Status" class="pill">MT5: …</span>
   <span id="binStatus" class="pill">Binance: …</span>
   <button class="link" onclick="location.href='/hub'">Analysis Hub</button>
+  <button class="link" onclick="location.href='/lab'">🧪 Strategy Lab</button>
   <button class="link" id="settingsBtn" onclick="document.getElementById('settingsModal').classList.add('open')">Settings</button>
   <button class="link" id="userName"></button>
   <button class="link" id="logoutBtn">Logout</button>
@@ -48,6 +49,7 @@
       <button class="tool" data-tool="channel" title="Parallel channel">⫽</button>
       <button class="tool" data-tool="vline" title="Vertical line">│</button>
       <button class="tool" data-tool="text" title="Text label">T</button>
+      <button class="tool" data-tool="whatif" title="What-if path (probability cones)">❓</button>
       <button class="tool" data-tool="eraser" title="Eraser">⌫</button>
       <button class="tool" data-tool="clear" title="Clear all drawings">✕</button>
     </div>
@@ -248,6 +250,9 @@
 <script src="/js/smt.js"></script>
 <script src="/js/liquidity.js"></script>
 <script src="/js/killzones.js"></script>
+<script src="/js/displacement.js"></script>
+<script src="/js/magnets.js"></script>
+<script src="/js/footprints.js"></script>
 <script src="/js/tiltlock.js"></script>
 <script src="/js/copier.js"></script>
 <script src="/js/app.js"></script>

@@ -96,6 +96,8 @@ async function loadData() {
   }
   if (window.TGRisk) window.TGRisk.recalc(); // entry price moved -> resize the lot
   if (window.TGKZ) window.TGKZ.onData(); // killzone boxes / midnight line follow new data
+  if (window.TGDisplacement) window.TGDisplacement.onData();
+  if (window.TGMagnets) window.TGMagnets.onData();
 }
 
 function setHint(t) { const h = $("#chartHint"); if (h) h.textContent = t; }
@@ -656,6 +658,34 @@ async function boot() {
   }
   if (window.TGTilt) window.TGTilt.init();
   if (window.TGCopier) window.TGCopier.init();
+
+  // tinkerer batch: displacement radar, sweep magnets, footprints
+  if (window.TGDisplacement) {
+    window.TGDisplacement.init({
+      chart: state.chart,
+      getCandles: () => viewCandles(),
+    });
+  }
+  if (window.TGMagnets) {
+    window.TGMagnets.init({
+      chart: state.chart,
+      getCandles: () => viewCandles(),
+    });
+  }
+  if (window.TGFootprints) {
+    window.TGFootprints.init({
+      getSymbol: () => state.symbol,
+      getTimeframe: () => state.timeframe,
+      getLastClose: () => {
+        const cs = viewCandles();
+        return cs.length ? cs[cs.length - 1].close : 0;
+      },
+      getLastTime: () => {
+        const cs = viewCandles();
+        return cs.length ? cs[cs.length - 1].time : Math.floor(Date.now() / 1000);
+      },
+    });
+  }
 
   // symbol datalist
   const dl = $("#symList");

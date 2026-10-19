@@ -45,6 +45,7 @@ app.use("/api/execute", require("./routes/execute"));
 app.use("/api/analysis", require("./routes/analysis"));
 app.use("/api/news", require("./routes/news"));
 app.use("/api/smt", require("./routes/smt"));
+app.use("/api/lab", require("./routes/lab"));
 
 app.get("/api/health", async (_req, res) => {
   let database = "unknown";
@@ -64,6 +65,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // SPA-ish fallbacks
 app.get("/terminal", (_req, res) => res.sendFile(path.join(__dirname, "public", "terminal.html")));
 app.get("/hub", (_req, res) => res.sendFile(path.join(__dirname, "public", "analysis.html")));
+app.get("/lab", (_req, res) => res.sendFile(path.join(__dirname, "public", "lab.html")));
 
 async function main() {
   try {
