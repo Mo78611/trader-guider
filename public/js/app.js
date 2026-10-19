@@ -611,6 +611,7 @@ async function boot() {
   $("#userName").textContent = me.user.name || me.user.email;
 
   initChart();
+  if (window.TGDebug) window.TGDebug.ping("after-initChart");
 
   // methodology & signal engine (dropdown, settings, signal panel)
   if (window.TGMethodUI) {
@@ -736,8 +737,10 @@ async function boot() {
   } catch (_e) {}
 
   $("#symInput").value = state.symbol;
+  if (window.TGDebug) window.TGDebug.ping("before-loadData");
   syncTf();
   await loadData();
+  if (window.TGDebug) window.TGDebug.ping("after-loadData");
 
   // toolbar
   document.querySelectorAll(".tool").forEach((el) => {
