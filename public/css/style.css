@@ -104,13 +104,14 @@ table.mini th{color:var(--dim);font-weight:400}
 .method-row .gear:hover{color:var(--gold)}
 
 /* MTF heatmap overlay */
-.mtf{position:absolute;top:10px;right:12px;background:rgba(17,22,31,.92);border:1px solid var(--border);border-radius:10px;padding:6px 8px;z-index:20;font-size:11px;min-width:118px}
+.mtf{grid-column:1 / -1;background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:8px 14px;font-size:11px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .mtf-head{display:flex;align-items:center;gap:6px;color:var(--gold);font-weight:700;letter-spacing:.5px;cursor:pointer;user-select:none}
 .mtf-head .chev{color:var(--dim);font-size:10px}
-.mtf-rows{margin-top:4px}
-.mtf-row{display:flex;align-items:center;gap:6px;margin:3px 0;color:var(--dim)}
+.mtf-rows{margin-top:0;display:flex;gap:10px;flex-wrap:wrap}
+.mtf-row{display:flex;align-items:center;gap:6px;margin:0;color:var(--dim)}
 .mtf-row .tf{width:26px}
-.mtf-badge{flex:1;text-align:center;padding:2px 0;border-radius:5px;font-weight:700}
+.mtf-badge{min-width:64px;text-align:center;padding:3px 10px;border-radius:5px;font-weight:700}
 .mtf-badge.up{color:#7fe3d8;background:rgba(38,166,154,.16);border:1px solid rgba(38,166,154,.5)}
 .mtf-badge.down{color:#f5a3a1;background:rgba(239,83,80,.14);border:1px solid rgba(239,83,80,.5)}
 .mtf-badge.flat{color:#8b94a7;background:rgba(139,148,167,.10);border:1px solid var(--border)}
@@ -281,7 +282,6 @@ table.mini th{color:var(--dim);font-weight:400}
   .sec h3{font-size:14px}
   .row label{width:92px}
   .btn.buy,.btn.sell{padding:14px;font-size:15px}
-  .mtf{top:8px;right:8px;min-width:104px}
   .modal{width:94vw}
   .news-panel{top:auto;bottom:0;right:0;left:0;width:100%;max-width:100%;max-height:70vh;border-radius:14px 14px 0 0}
   .sent-badge{top:8px;left:8px;font-size:11px;max-width:60vw}

@@ -60,7 +60,14 @@
       <div id="chart"></div>
       <div class="chart-hint" id="chartHint">Loading…</div>
       <div class="sent-badge" id="sentBadge" style="display:none"></div>
-      <div class="mtf" id="mtfWidget" title="Multi-timeframe trend">
+      
+    </div>
+  </div>
+
+  <!-- ALL PANELS BELOW the chart, in user-specified order:
+       1 execution, 2 signals (injected by method-ui.js), 3 positions, 4 indicators, 5 hub -->
+  <div class="panels">
+  <div class="mtf" id="mtfWidget" title="Multi-timeframe trend">
         <div class="mtf-head" id="mtfHead">MTF <span class="chev" id="mtfChev">▾</span></div>
         <div class="mtf-rows" id="mtfRows">
           <div class="mtf-row"><span class="tf">15m</span><span class="mtf-badge flat" id="mtf-15m">…</span></div>
@@ -69,12 +76,7 @@
           <div class="mtf-row"><span class="tf">1D</span><span class="mtf-badge flat" id="mtf-1d">…</span></div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- ALL PANELS BELOW the chart, in user-specified order:
-       1 execution, 2 signals (injected by method-ui.js), 3 positions, 4 indicators, 5 hub -->
-  <div class="panels">
   <!-- ◤ THE BLACKSITE ◢ — inline section below the chart (user rule 2026-10-19: no popup) -->
   <div class="blacksite-drawer" id="blacksiteDrawer">
   <div class="blacksite-head">
