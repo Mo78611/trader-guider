@@ -43,6 +43,7 @@ app.use("/api/market", require("./routes/market"));
 app.use("/api/binance", require("./routes/binance"));
 app.use("/api/execute", require("./routes/execute"));
 app.use("/api/analysis", require("./routes/analysis"));
+app.use("/api/news", require("./routes/news"));
 
 app.get("/api/health", async (_req, res) => {
   let database = "unknown";

@@ -77,6 +77,13 @@ window.TGMethodUI = (function () {
         retests: "Retest / Bounce Signals",
       },
     },
+    sentiment: {
+      label: "Sentiment & News", color: "#26d3a0",
+      settings: {
+        newszones: "News Event Zones",
+        badge: "Sentiment Bias Badge",
+      },
+    },
   };
   const EVAL_METHODS = ["ict", "smc", "vsa", "priceaction", "trendsr"]; // can emit signals
   const SERIES_CAP = 140;
@@ -85,8 +92,10 @@ window.TGMethodUI = (function () {
 
   const S = {
     chart: null, candleSeries: null, markerSeries: null,
-    getCandles: null, getTimeframe: null, onChange: null,
+    getCandles: null, getTimeframe: null, getSymbol: null, onChange: null,
     methods: {}, cache: { key: null, ctx: null },
+    news: { key: null, events: [] }, newsBusy: false,
+    sent: { key: null, at: 0, data: null },
     registry: [], timer: null, ui: false,
   };
 
@@ -350,6 +359,94 @@ window.TGMethodUI = (function () {
     }
   }
 
+  /* ---------------- sentiment & news zones ---------------- */
+  function shortLabel(title) {
+    const t = String(title || "").toUpperCase();
+    if (/NON-?FARM|NFP/.test(t)) return "NFP";
+    if (/UNEMPLOYMENT/.test(t)) return "UNEMP";
+    if (/CPI/.test(t)) return "CPI";
+    if (/FOMC/.test(t)) return "FOMC";
+    if (/PPI/.test(t)) return "PPI";
+    if (/RETAIL/.test(t)) return "RETAIL";
+    if (/GDP/.test(t)) return "GDP";
+    if (/ISM/.test(t)) return "ISM";
+    if (/PCE/.test(t)) return "PCE";
+    return t.split(" ")[0].slice(0, 8) || "NEWS";
+  }
+
+  function ensureNews() {
+    if (S.newsBusy) return;
+    const sym = S.getSymbol ? S.getSymbol() : "BTCUSDT";
+    const key = sym;
+    if (S.news.key === key) return; // fresh for this symbol
+    S.newsBusy = true;
+    fetch(`/api/news/upcoming?asset=${encodeURIComponent(sym)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const evs = (j && j.events) || [];
+        const newKey = key + ":" + evs.length + ":" + (evs[0] ? evs[0].time : "");
+        if (S.news.key !== newKey) {
+          S.news = { key: newKey, events: evs };
+          if (S.methods.sentiment && S.methods.sentiment.enabled) renderAll();
+        } else {
+          S.news.key = key; // mark fresh even if unchanged
+        }
+      })
+      .catch(() => { /* keep old / empty */ })
+      .finally(() => { S.newsBusy = false; });
+    // also warm the news panel data if the panel module exists
+    try { if (window.TGNews && S.methods.sentiment && S.methods.sentiment.enabled) window.TGNews.prefetch(); } catch (_e) {}
+  }
+
+  function ensureSentiment(cb) {
+    const sym = S.getSymbol ? S.getSymbol() : "BTCUSDT";
+    if (S.sent.key === sym && Date.now() - S.sent.at < 5 * 60 * 1000) { if (cb) cb(S.sent.data); return; }
+    fetch(`/api/news/sentiment?symbol=${encodeURIComponent(sym)}`)
+      .then((r) => r.json())
+      .then((d) => { S.sent = { key: sym, at: Date.now(), data: d }; if (cb) cb(d); })
+      .catch(() => { if (cb) cb(null); });
+  }
+
+  function renderSentiment(rc, t0, t1, lo, hi) {
+    const st = S.methods.sentiment;
+    if (!st || !st.enabled) { hideSentBadge(); return; }
+    const set = st.settings || {};
+    ensureNews();
+    if (set.newszones) {
+      const maxT = t1 + 7 * 86400;
+      let n = 0;
+      for (const ev of S.news.events) {
+        const et = Math.floor(new Date(ev.time).getTime() / 1000);
+        if (!(et >= t0 - 86400 && et <= maxT)) continue;
+        if (++n > 8) break;
+        const lbl = shortLabel(ev.title);
+        vline(rc, et, "rgba(212,169,78,0.55)", 2, lo, hi);
+        rc.marker({ time: et, position: "aboveBar", color: "#d4a94e", shape: "text", text: "📰" + lbl });
+      }
+    }
+    if (set.badge) {
+      ensureSentiment((d) => updateSentBadge(d));
+    } else {
+      hideSentBadge();
+    }
+  }
+
+  function hideSentBadge() {
+    const b = document.getElementById("sentBadge");
+    if (b) b.style.display = "none";
+  }
+
+  function updateSentBadge(d) {
+    const b = document.getElementById("sentBadge");
+    if (!b) return;
+    if (!d || d.longPct == null) { b.style.display = "none"; return; }
+    const lp = d.longPct;
+    const crowded = lp >= 75 ? " 🔴 crowded" : lp <= 25 ? " 🟢 crowded short" : "";
+    b.style.display = "block";
+    b.style.borderColor = lp >= 60 ? "rgba(239,83,80,.5)" : lp <= 40 ? "rgba(38,166,154,.5)" : "var(--border)";
+    b.textContent = `Retail ${lp}% long${crowded} · F&G ${d.fearGreed ? d.fearGreed.value : "—"}`;
+  }
+
   function slopeOf(pts) {
     const n = pts.length;
     if (n < 2) return 0;
@@ -507,9 +604,11 @@ window.TGMethodUI = (function () {
     const rc = newRC();
     for (const key of Object.keys(METHODS)) {
       const st = S.methods[key];
-      if (!st || !st.enabled) continue;
+      if (!st || !st.enabled || key === "sentiment") continue;
       renderMethod(key, st, ctx, rc, t0, t1, lo, hi);
     }
+    // sentiment & news zones (own async data path)
+    try { renderSentiment(rc, t0, t1, lo, hi); } catch (_e) {}
     // signal (drawn into the same render context)
     const res = evaluateSignal(ctx);
     if ((res.state === "single" || res.state === "confluence") && res.signal) {
@@ -661,6 +760,7 @@ window.TGMethodUI = (function () {
     S.candleSeries = opts.candleSeries;
     S.getCandles = opts.getCandles;
     S.getTimeframe = opts.getTimeframe;
+    S.getSymbol = opts.getSymbol || null;
     S.onChange = opts.onChange;
     S.methods = defaultState();
     try {

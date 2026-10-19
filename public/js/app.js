@@ -76,6 +76,18 @@ async function loadData() {
 
 function setHint(t) { const h = $("#chartHint"); if (h) h.textContent = t; }
 
+/* trend of loaded candles: 'up' | 'down' | 'flat' (for news bias confluence) */
+function currentTrend() {
+  const C = state.candles;
+  if (!C || C.length < 60) return null;
+  const a = C[C.length - 51].close, b = C[C.length - 1].close;
+  if (!(a > 0)) return null;
+  const chg = (b - a) / a;
+  if (chg > 0.005) return "up";
+  if (chg < -0.005) return "down";
+  return "flat";
+}
+
 /* ---------- indicators ---------- */
 const IND_DEFS = {
   sma:  { label: "SMA",  pane: "main", color: "#4f7cff" },
@@ -541,7 +553,16 @@ async function boot() {
       candleSeries: state.candleSeries,
       getCandles: () => state.candles,
       getTimeframe: () => state.timeframe,
+      getSymbol: () => state.symbol,
       onChange: scheduleSave,
+    });
+  }
+
+  // news radar + sentiment widget
+  if (window.TGNews) {
+    window.TGNews.init({
+      getSymbol: () => state.symbol,
+      getTrend: currentTrend,
     });
   }
 
@@ -631,7 +652,7 @@ async function boot() {
 
   $("#symInput").addEventListener("change", (e) => {
     const v = e.target.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (v) { state.symbol = v; loadData(); if (window.TGMTF) window.TGMTF.onSymbolChange(); }
+    if (v) { state.symbol = v; loadData(); if (window.TGMTF) window.TGMTF.onSymbolChange(); if (window.TGNews) window.TGNews.onSymbolChange(); }
   });
 
   refreshExecStatus();
