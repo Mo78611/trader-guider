@@ -665,6 +665,13 @@ window.TGMethodUI = (function () {
     // signal (drawn into the same render context)
     const res = evaluateSignal(ctx);
     S.lastSignal = res || { state: "none" };
+    // BLACKSITE ghost log: record every emitted signal plan (Regret Engine).
+    // Hook only — guarded, never breaks the render path.
+    try {
+      if (window.TGBlacksit && res && (res.state === "single" || res.state === "confluence") && res.signal) {
+        window.TGBlacksit.onSignal(S.getSymbol ? S.getSymbol() : "", S.getTimeframe ? S.getTimeframe() : "", res.signal);
+      }
+    } catch (_e) {}
     if ((res.state === "single" || res.state === "confluence") && res.signal) {
       try { window.TGSignals.render(S.chart, rc, res.signal, t0, t1); }
       catch (_e) { /* signal art must never break the chart */ }

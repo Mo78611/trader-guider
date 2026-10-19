@@ -33,6 +33,7 @@
   <button class="link" onclick="location.href='/hub'">Analysis Hub</button>
   <button class="link" onclick="location.href='/lab'">🧪 Strategy Lab</button>
   <button class="link" onclick="location.href='/playbook'">📖 Playbook</button>
+  <button class="link blacksite-btn" id="blacksiteBtn" title="Experimental lab — separate section">◤ BLACKSITE</button>
   <button class="link" id="settingsBtn" onclick="document.getElementById('settingsModal').classList.add('open')">Settings</button>
   <button class="link" id="userName"></button>
   <button class="link" id="logoutBtn">Logout</button>
@@ -256,7 +257,33 @@
 <script src="/js/footprints.js"></script>
 <script src="/js/tiltlock.js"></script>
 <script src="/js/copier.js"></script>
+<!-- ◤ THE BLACKSITE ◢ — exclusive experimental section (own drawer, not in ◈ menu) -->
+<div class="blacksite-drawer" id="blacksiteDrawer">
+  <div class="blacksite-head">
+    <h2>◤ THE BLACKSITE ◢</h2>
+    <button class="x" id="blacksiteClose" title="Close">×</button>
+  </div>
+  <div class="blacksite-sub">Experimental lab. Estimates and studies only — not signals, not financial advice.</div>
+  <div class="blacksite-tabs">
+    <button class="blacksite-tab active" data-tab="ghosts">👻 Ghosts</button>
+    <button class="blacksite-tab" data-tab="fractures">💥 Fractures</button>
+    <button class="blacksite-tab" data-tab="echo">🔁 Echo</button>
+    <button class="blacksite-tab" data-tab="spring">🌀 Spring</button>
+  </div>
+  <div class="blacksite-body">
+    <div class="blacksite-pane" data-pane="ghosts" id="bsGhosts"></div>
+    <div class="blacksite-pane" data-pane="fractures" id="bsFractures" style="display:none"></div>
+    <div class="blacksite-pane" data-pane="echo" style="display:none">
+      <button class="btn blacksite-btn2" id="bsEchoBtn">🔁 Scan current chart for rhymes</button>
+      <div class="blacksite-note">Compares the last 30 bars with this symbol's own history. Finds similar shapes and shows what happened next.</div>
+      <div id="bsEchoOut" style="margin-top:10px"></div>
+    </div>
+    <div class="blacksite-pane" data-pane="spring" id="bsSpring" style="display:none"></div>
+  </div>
+</div>
+
 <script src="/js/estimator.js"></script>
+<script src="/js/blacksite.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

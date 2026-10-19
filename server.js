@@ -46,6 +46,7 @@ app.use("/api/analysis", require("./routes/analysis"));
 app.use("/api/news", require("./routes/news"));
 app.use("/api/smt", require("./routes/smt"));
 app.use("/api/lab", require("./routes/lab"));
+app.use("/api/blacksite", require("./routes/blacksite"));
 
 app.get("/api/health", async (_req, res) => {
   let database = "unknown";

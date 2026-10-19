@@ -624,6 +624,16 @@ async function boot() {
     });
   }
 
+  // ◤ THE BLACKSITE ◢ — exclusive experimental section (own drawer, own toggles)
+  if (window.TGBlacksit) {
+    window.TGBlacksit.init({
+      chart: state.chart,
+      getCandles: () => viewCandles(),
+      getSymbol: () => state.symbol,
+      getTimeframe: () => state.timeframe,
+    });
+  }
+
   // live strategy estimator (reads ticked methodologies, shows freq/win/strictness)
   if (window.TGEstimator) {
     window.TGEstimator.init({

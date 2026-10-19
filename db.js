@@ -58,7 +58,7 @@ function toPg(sql) {
 }
 // Tables whose INSERTs need the new id back (RETURNING id on pg).
 const ID_TABLES = new Set(["users", "api_credentials", "analyses", "paper_trades",
-  "mt5_accounts", "binance_accounts", "footprints"]);
+  "mt5_accounts", "binance_accounts", "footprints", "ghost_signals"]);
 
 const db = {
   isPostgres,
@@ -257,6 +257,27 @@ async function ensureSchema() {
         updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         PRIMARY KEY (symbol, session)
       );
+      -- BLACKSITE: Ghost Trades (Regret Engine) — every emitted signal plan.
+      CREATE TABLE IF NOT EXISTS ghost_signals (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        symbol      TEXT NOT NULL DEFAULT '',
+        timeframe   TEXT NOT NULL DEFAULT '',
+        direction   TEXT NOT NULL DEFAULT '',
+        entry       DOUBLE PRECISION NOT NULL DEFAULT 0,
+        sl          DOUBLE PRECISION NOT NULL DEFAULT 0,
+        tp1         DOUBLE PRECISION NOT NULL DEFAULT 0,
+        tp2         DOUBLE PRECISION NOT NULL DEFAULT 0,
+        tag         TEXT NOT NULL DEFAULT '',
+        bar_time    BIGINT NOT NULL DEFAULT 0,
+        outcome     TEXT,
+        outcome_r   DOUBLE PRECISION,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_ghost_dedupe
+        ON ghost_signals(user_id, symbol, timeframe, bar_time, direction);
+      CREATE INDEX IF NOT EXISTS idx_ghost_user_time
+        ON ghost_signals(user_id, created_at);
     `);
     // Migration: exit_price/pnl on paper_trades for the tilt-lock loss tracker.
     await db.exec("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS exit_price DOUBLE PRECISION");
@@ -402,7 +423,27 @@ async function ensureSchema() {
         updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
         PRIMARY KEY (symbol, session)
       );
+      -- BLACKSITE: Ghost Trades (Regret Engine) — every emitted signal plan.
+      CREATE TABLE IF NOT EXISTS ghost_signals (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        symbol       TEXT NOT NULL DEFAULT '',
+        timeframe    TEXT NOT NULL DEFAULT '',
+        direction    TEXT NOT NULL DEFAULT '',
+        entry        REAL NOT NULL DEFAULT 0,
+        sl           REAL NOT NULL DEFAULT 0,
+        tp1          REAL NOT NULL DEFAULT 0,
+        tp2          REAL NOT NULL DEFAULT 0,
+        tag          TEXT NOT NULL DEFAULT '',
+        bar_time     INTEGER NOT NULL DEFAULT 0,
+        outcome      TEXT,
+        outcome_r    REAL,
+        created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+      );
     `);
+    // BLACKSITE: indexes for ghost_signals (SQLite branch).
+    await db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_ghost_dedupe ON ghost_signals(user_id, symbol, timeframe, bar_time, direction)");
+    await db.exec("CREATE INDEX IF NOT EXISTS idx_ghost_user_time ON ghost_signals(user_id, created_at)");
     // Migration: exit_price/pnl on paper_trades for the tilt-lock loss tracker.
     const pcols = (await db.all(`PRAGMA table_info(paper_trades)`)).map((c) => c.name);
     if (!pcols.includes("exit_price")) {
