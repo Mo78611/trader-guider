@@ -951,6 +951,23 @@ async function boot() {
   refreshExecStatus();
   refreshPositions();
   setInterval(refreshPositions, 30000);
+  // watchlist (TradingView-style)
+  safeInit("TGWatchlist", () => {
+    if (window.TGWatchlist) window.TGWatchlist.init({
+      onPick: (sym) => {
+        const v = String(sym || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (!v) return;
+        if (window.TGReplay && window.TGReplay.active()) window.TGReplay.exit();
+        state.symbol = v;
+        $("#symInput").value = v;
+        loadData();
+        if (window.TGMTF) window.TGMTF.onSymbolChange();
+        if (window.TGNews) window.TGNews.onSymbolChange();
+        if (window.TGSMT) window.TGSMT.onSymbolChange();
+        if (window.TGLiq) window.TGLiq.onSymbolChange();
+      },
+    });
+  });
   setHint("Restored your last workspace. Click a tool on the left to draw.");
 }
 function syncTf() {
