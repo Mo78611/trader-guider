@@ -107,11 +107,11 @@ router.post("/firebase-session", async (req, res) => {
   res.json({ user: publicUser(user), via: "firebase" });
 });
 
-// --- API credential storage (Binance testnet keys), per user ---
+// --- API credential storage (Binance keys), per user ---
 router.post("/credentials", requireAuth, async (req, res) => {
   const { venue, apiKey, apiSecret, label } = req.body || {};
-  if (!["binance_spot", "binance_futures"].includes(venue)) {
-    return res.status(400).json({ error: "venue must be binance_spot or binance_futures" });
+  if (!["binance_spot", "binance_futures", "binance_spot_main", "binance_futures_main"].includes(venue)) {
+    return res.status(400).json({ error: "venue must be binance_spot / binance_futures / binance_spot_main / binance_futures_main" });
   }
   if (!apiKey || !apiSecret) return res.status(400).json({ error: "apiKey_and_apiSecret_required" });
   try {

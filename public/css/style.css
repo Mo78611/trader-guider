@@ -95,3 +95,49 @@ table.mini th{color:var(--dim);font-weight:400}
 .method-row input{width:auto;accent-color:var(--gold);cursor:pointer}
 .method-row .gear{margin-left:auto;background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 6px}
 .method-row .gear:hover{color:var(--gold)}
+
+/* MTF heatmap overlay */
+.mtf{position:absolute;top:10px;right:12px;background:rgba(17,22,31,.92);border:1px solid var(--border);border-radius:10px;padding:6px 8px;z-index:20;font-size:11px;min-width:118px}
+.mtf-head{display:flex;align-items:center;gap:6px;color:var(--gold);font-weight:700;letter-spacing:.5px;cursor:pointer;user-select:none}
+.mtf-head .chev{color:var(--dim);font-size:10px}
+.mtf-rows{margin-top:4px}
+.mtf-row{display:flex;align-items:center;gap:6px;margin:3px 0;color:var(--dim)}
+.mtf-row .tf{width:26px}
+.mtf-badge{flex:1;text-align:center;padding:2px 0;border-radius:5px;font-weight:700}
+.mtf-badge.up{color:#7fe3d8;background:rgba(38,166,154,.16);border:1px solid rgba(38,166,154,.5)}
+.mtf-badge.down{color:#f5a3a1;background:rgba(239,83,80,.14);border:1px solid rgba(239,83,80,.5)}
+.mtf-badge.flat{color:#8b94a7;background:rgba(139,148,167,.10);border:1px solid var(--border)}
+.mtf.collapsed .mtf-rows{display:none}
+
+/* warn text */
+.warn{color:#f0b429;font-size:12px;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.35);border-radius:8px;padding:7px 9px;margin:6px 0}
+
+/* ================================================================
+ * MOBILE (max-width: 768px): chart full-width on top, panels stack
+ * below. Desktop layout untouched (rules only apply <=768px).
+ * ================================================================ */
+@media (max-width: 768px) {
+  body{overflow-y:auto;overflow-x:hidden}
+  .topbar{height:auto;min-height:52px;flex-wrap:wrap;padding:8px 10px;gap:8px}
+  .topbar .spacer{display:none}
+  #tfBar{order:5;flex-basis:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+  #tfBar::-webkit-scrollbar{display:none}
+  #tfBar .tf-btn{flex:0 0 auto}
+  #tickerInfo{order:6;flex-basis:100%}
+  .workspace{display:block;height:auto;overflow:visible}
+  .toolbar{display:none}
+  .main{width:100%;height:46vh;min-height:320px;position:relative}
+  #chart{position:absolute;inset:0}
+  .side{width:100%;border-left:none;border-top:1px solid var(--border);overflow:visible;display:flex;flex-direction:column}
+  /* execution first on mobile, then tracked trades/positions, signals, indicators, hub */
+  #execSec{order:1}
+  #positionsSec{order:2}
+  #sigSec{order:3}
+  #indicatorsSec{order:4}
+  #hubSec{order:5}
+  .side .sec h3{font-size:14px}
+  .row label{width:92px}
+  .btn.buy,.btn.sell{padding:14px;font-size:15px}
+  .mtf{top:8px;right:8px;min-width:104px}
+  .modal{width:94vw}
+}

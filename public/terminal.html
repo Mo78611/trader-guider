@@ -52,22 +52,68 @@
   <div class="main">
     <div id="chart"></div>
     <div class="chart-hint" id="chartHint">Loading…</div>
+    <div class="mtf" id="mtfWidget" title="Multi-timeframe trend">
+      <div class="mtf-head" id="mtfHead">MTF <span class="chev" id="mtfChev">▾</span></div>
+      <div class="mtf-rows" id="mtfRows">
+        <div class="mtf-row"><span class="tf">15m</span><span class="mtf-badge flat" id="mtf-15m">…</span></div>
+        <div class="mtf-row"><span class="tf">1H</span><span class="mtf-badge flat" id="mtf-1h">…</span></div>
+        <div class="mtf-row"><span class="tf">4H</span><span class="mtf-badge flat" id="mtf-4h">…</span></div>
+        <div class="mtf-row"><span class="tf">1D</span><span class="mtf-badge flat" id="mtf-1d">…</span></div>
+      </div>
+    </div>
   </div>
 
   <div class="side">
-    <div class="sec">
+    <div class="sec" id="execSec">
       <h3>One-click execution</h3>
       <div class="row">
         <label>Target</label>
         <select id="execTarget">
           <option value="mt5">MT5 bridge (demo)</option>
-          <option value="bin_fut">Binance futures (testnet)</option>
-          <option value="bin_spot">Binance spot (testnet)</option>
+          <option value="bin_fut">Binance futures</option>
+          <option value="bin_spot">Binance spot</option>
         </select>
       </div>
-      <div class="row" id="mt5SymRow">
-        <label>MT5 symbol</label>
-        <input id="mt5Sym" placeholder="e.g. BTCUSD / XAUUSD">
+      <div class="row" id="binModeRow" style="display:none">
+        <label>Binance mode</label>
+        <select id="binMode">
+          <option value="testnet">Testnet (Demo)</option>
+          <option value="mainnet">Mainnet (Real)</option>
+        </select>
+      </div>
+      <div class="warn" id="mainnetWarn" style="display:none">⚠ MAINNET (REAL MONEY). Orders move real funds. DRY_RUN and server gates still apply.</div>
+      <div id="mt5Box">
+        <div class="row" id="mt5SymRow">
+          <label>MT5 symbol</label>
+          <input id="mt5Sym" placeholder="e.g. BTCUSD / XAUUSD">
+        </div>
+        <div class="row">
+          <label>Server</label>
+          <select id="mt5Server">
+            <option value="Exness-Real">Exness-Real</option>
+            <option value="Exness-Trial">Exness-Trial</option>
+            <option value="Exness-MT5Real">Exness-MT5Real</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </div>
+        <div class="row" id="mt5CustomRow" style="display:none">
+          <label>Custom server</label>
+          <input id="mt5ServerCustom" placeholder="Broker-Server">
+        </div>
+        <div class="row">
+          <label>Account ID</label>
+          <input id="mt5Acct" placeholder="MT5 login number" autocomplete="off">
+        </div>
+        <div class="row">
+          <label>Password</label>
+          <input id="mt5Pass" type="password" placeholder="MT5 password" autocomplete="off">
+        </div>
+        <div class="row">
+          <button class="btn" id="mt5SaveBtn" style="flex:1">Save credentials</button>
+          <button class="btn" id="mt5ConnBtn" style="flex:1">Connect</button>
+        </div>
+        <div class="status-line" id="mt5ConnStatus"></div>
+        <div class="warn">Real trading happens ONLY through the bridge on your own PC. This site never places MT5 orders itself.</div>
       </div>
       <div class="row">
         <label>Volume / Qty</label>
@@ -82,6 +128,10 @@
         <input id="execTP" type="number" step="any" placeholder="price">
       </div>
       <div class="row">
+        <label title="Move SL to entry when 1R profit is reached"><input type="checkbox" id="autoBE" style="width:auto" checked> Auto break-even</label>
+        <label title="Close 50% at TP1 / 1.5R"><input type="checkbox" id="autoPartial" style="width:auto" checked> Auto partial 50%</label>
+      </div>
+      <div class="row">
         <button class="btn buy" id="buyBtn">BUY</button>
         <button class="btn sell" id="sellBtn">SELL</button>
       </div>
@@ -89,12 +139,13 @@
       <div class="status-line" id="dryRunNote"></div>
     </div>
 
-    <div class="sec">
+    <div class="sec" id="positionsSec">
       <h3>Positions <button class="btn" id="refreshPos" style="padding:3px 8px;font-size:11px">↻</button></h3>
+      <div id="trackedBox"></div>
       <div id="positionsBox"><div style="color:var(--dim);font-size:12px">Loading…</div></div>
     </div>
 
-    <div class="sec">
+    <div class="sec" id="indicatorsSec">
       <h3>Indicators</h3>
       <div id="indList"></div>
       <div class="row">
@@ -118,7 +169,7 @@
       </div>
     </div>
 
-    <div class="sec">
+    <div class="sec" id="hubSec">
       <h3>Analysis Hub</h3>
       <button class="btn wide" id="saveAnalysisBtn">📸 Save analysis (chart snapshot)</button>
     </div>
@@ -129,14 +180,20 @@
 <div class="modal-back" id="settingsModal">
   <div class="modal">
     <h2>Settings — exchange keys</h2>
-    <p style="color:var(--dim);font-size:12px">Free <b>testnet</b> keys only (testnet.binance.vision). Stored encrypted in the local DB. Never paste real mainnet keys here.</p>
+    <p style="color:var(--dim);font-size:12px">Keys are stored encrypted in the DB. Testnet keys are free and safe (testnet.binance.vision).</p>
+    <div class="warn" style="display:none" id="mainnetKeyWarn">⚠ You selected a MAINNET venue — these keys can move REAL money. Triple-check before saving.</div>
     <div class="row"><label>Venue</label>
-      <select id="keyVenue"><option value="binance_spot">Binance spot (testnet)</option><option value="binance_futures">Binance futures (testnet)</option></select>
+      <select id="keyVenue">
+        <option value="binance_spot">Binance spot (testnet)</option>
+        <option value="binance_futures">Binance futures (testnet)</option>
+        <option value="binance_spot_main">Binance spot (MAINNET)</option>
+        <option value="binance_futures_main">Binance futures (MAINNET)</option>
+      </select>
     </div>
-    <div class="row"><label>API key</label><input id="keyKey" placeholder="testnet api key"></div>
-    <div class="row"><label>API secret</label><input id="keySec" type="password" placeholder="testnet api secret"></div>
+    <div class="row"><label>API key</label><input id="keyKey" placeholder="api key" autocomplete="off"></div>
+    <div class="row"><label>API secret</label><input id="keySec" type="password" placeholder="api secret" autocomplete="off"></div>
     <div class="row"><button class="btn wide" id="saveKeysBtn">Save keys (encrypted)</button></div>
-    <p style="color:var(--dim);font-size:12px">MT5 bridge: run <code>python app.py</code> in <code>mt5-bridge/</code> on your Windows PC, then it shows as connected above.</p>
+    <p style="color:var(--dim);font-size:12px">MT5 bridge: run <code>python app.py</code> in <code>mt5-bridge/</code> on your Windows PC, then press Connect in the execution panel.</p>
   </div>
 </div>
 
@@ -157,6 +214,8 @@
 <script src="/js/methodology.js"></script>
 <script src="/js/signals.js"></script>
 <script src="/js/method-ui.js"></script>
+<script src="/js/mtf.js"></script>
+<script src="/js/trademgr.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

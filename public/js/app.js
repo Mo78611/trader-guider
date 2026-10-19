@@ -289,33 +289,132 @@ function mt5Symbol(s) {
   if (s === "PAXGUSDT") return "XAUUSD";
   return s.replace(/USDT$/, "USD").replace(/USDC$/, "USD");
 }
+
+function binanceVenue() {
+  // returns venue key from target select + mode toggle
+  const t = $("#execTarget").value;
+  if (t !== "bin_fut" && t !== "bin_spot") return null;
+  const main = $("#binMode") && $("#binMode").value === "mainnet";
+  const base = t === "bin_spot" ? "binance_spot" : "binance_futures";
+  return main ? base + "_main" : base;
+}
+
+function syncExecUI() {
+  const v = $("#execTarget").value;
+  const isMt5 = v === "mt5";
+  const isBin = v === "bin_fut" || v === "bin_spot";
+  $("#mt5Box").style.display = isMt5 ? "block" : "none";
+  $("#binModeRow").style.display = isBin ? "flex" : "none";
+  const main = $("#binMode") && $("#binMode").value === "mainnet";
+  $("#mainnetWarn").style.display = isBin && main ? "block" : "none";
+  $("#execVol").value = isMt5 ? "0.01" : "0.001";
+}
+
 async function refreshExecStatus() {
   try {
     const j = await fetch("/api/execute/status").then((r) => r.json());
     const mt5 = $("#mt5Status"), bn = $("#binStatus");
-    mt5.textContent = j.mt5.reachable ? `MT5 bridge: connected${j.mt5.dry_run === false ? "" : " (dry-run)"}` : "MT5 bridge: not running";
-    mt5.className = "pill " + (j.mt5.reachable ? "ok" : "bad");
-    const keys = (j.binance.spot_keys ? "spot " : "") + (j.binance.futures_keys ? "futures" : "");
-    bn.textContent = keys ? `Binance testnet keys: ${keys}` : "Binance testnet: no keys saved";
-    bn.className = "pill " + (keys ? "ok" : "bad");
+    const loggedIn = j.mt5.status && j.mt5.status.logged_in;
+    mt5.textContent = j.mt5.reachable
+      ? `MT5 bridge: ${loggedIn ? "connected ✓" : "running, not logged in"}${j.dryRun ? " (dry-run)" : ""}`
+      : "MT5 bridge: not running";
+    mt5.className = "pill " + (j.mt5.reachable && loggedIn ? "ok" : j.mt5.reachable ? "" : "bad");
+    const keys = [];
+    if (j.binance.spot_keys) keys.push("spot");
+    if (j.binance.futures_keys) keys.push("futures");
+    if (j.binance.spot_main_keys) keys.push("spot-MAIN");
+    if (j.binance.futures_main_keys) keys.push("fut-MAIN");
+    bn.textContent = keys.length ? `Binance keys: ${keys.join(" ")}` : "Binance: no keys saved";
+    bn.className = "pill " + (keys.length ? "ok" : "bad");
     const note = $("#dryRunNote");
     note.textContent = (j.dryRun
       ? "DRY_RUN is ON — orders are logged only, nothing is sent."
-      : "DRY_RUN is OFF — orders WILL be sent to testnet/demo!")
+      : "DRY_RUN is OFF — orders WILL be sent!")
       + (j.mt5Hint ? " " + j.mt5Hint : "");
     note.style.color = j.dryRun ? "var(--dim)" : "var(--red)";
   } catch (_e) {}
 }
+
+/* ----- MT5 credentials ----- */
+async function loadMt5Creds() {
+  try {
+    const j = await fetch("/api/execute/mt5/credentials").then((r) => r.json());
+    if (j && j.saved) {
+      const sel = $("#mt5Server");
+      const known = Array.from(sel.options).some((o) => o.value === j.server);
+      sel.value = known ? j.server : "custom";
+      $("#mt5CustomRow").style.display = known ? "none" : "flex";
+      if (!known) $("#mt5ServerCustom").value = j.server;
+      $("#mt5Acct").value = j.accountId || "";
+      setMt5Conn("Credentials saved on server ✓ (password hidden)", false);
+    }
+  } catch (_e) {}
+}
+function setMt5Conn(msg, isErr) {
+  const el = $("#mt5ConnStatus");
+  el.textContent = msg || "";
+  el.className = "status-line" + (isErr ? " err" : " okk");
+}
+async function saveMt5Creds() {
+  const sel = $("#mt5Server").value;
+  const server = sel === "custom" ? $("#mt5ServerCustom").value.trim() : sel;
+  const accountId = $("#mt5Acct").value.trim();
+  const password = $("#mt5Pass").value;
+  if (!server || !accountId || !password) { setMt5Conn("Server, Account ID and Password are all required.", true); return; }
+  setMt5Conn("Saving…", false);
+  try {
+    const j = await fetch("/api/execute/mt5/credentials", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server, accountId, password }),
+    }).then((r) => r.json());
+    if (j.ok) {
+      setMt5Conn("Saved (encrypted) ✓ — password never leaves the server unencrypted.", false);
+      $("#mt5Pass").value = ""; // never keep the password in the page
+      refreshExecStatus();
+    } else setMt5Conn("Save failed: " + (j.error || "unknown"), true);
+  } catch (e) { setMt5Conn("Save failed: " + e.message, true); }
+}
+async function connectMt5() {
+  const sel = $("#mt5Server").value;
+  const server = sel === "custom" ? $("#mt5ServerCustom").value.trim() : sel;
+  const accountId = $("#mt5Acct").value.trim();
+  const password = $("#mt5Pass").value;
+  setMt5Conn("Connecting…", false);
+  try {
+    const body = password ? { server, accountId, password } : {};
+    const j = await fetch("/api/execute/mt5/connect", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then((r) => r.json());
+    $("#mt5Pass").value = "";
+    if (j.error) setMt5Conn("Connect failed: " + (j.detail || j.error), true);
+    else if (j.account) {
+      const a = j.account;
+      setMt5Conn(`Connected ✓ ${a.login} @ ${a.server} — balance ${a.balance} ${a.currency}${a.trade_mode === 2 ? " (REAL account)" : " (demo)"}`, false);
+    } else setMt5Conn("Bridge replied, unexpected response.", true);
+    refreshExecStatus();
+  } catch (e) { setMt5Conn("Connect failed: " + e.message, true); }
+}
+
 async function oneClick(action) {
   const target = $("#execTarget").value;
   const sl = parseFloat($("#execSL").value) || 0;
   const tp = parseFloat($("#execTP").value) || 0;
   const vol = parseFloat($("#execVol").value) || 0.01;
+  const venue = binanceVenue();
+  const isMainnet = venue && venue.endsWith("_main");
+
+  // safety confirmations
+  if (isMainnet) {
+    if (!confirm("⚠ REAL MONEY order on Binance MAINNET — confirm?")) return;
+  } else if (target === "mt5") {
+    if (!confirm(`Send ${action.toUpperCase()} ${( $("#mt5Sym").value.trim() || mt5Symbol(state.symbol))} via MT5 bridge?`)) return;
+  }
+
   const body = target === "mt5"
     ? { target, action, symbol: $("#mt5Sym").value.trim() || mt5Symbol(state.symbol), volume: vol, sl, tp }
-    : { target, action, symbol: state.symbol, quantity: vol, venue: $("#execTarget").value === "bin_spot" ? "binance_spot" : "binance_futures" };
-  const tgt = body.target === "mt5" ? "mt5" : "binance";
-  body.target = tgt;
+    : { target, action, symbol: state.symbol, quantity: vol, venue };
+  body.target = target === "mt5" ? "mt5" : "binance";
   const line = $("#execStatus");
   line.className = "status-line"; line.textContent = "Sending…";
   try {
@@ -323,7 +422,26 @@ async function oneClick(action) {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     }).then((r) => r.json());
     if (j.error) { line.className = "status-line err"; line.textContent = "Error: " + (j.detail || j.error); }
-    else { line.className = "status-line okk"; line.textContent = j.dryRun ? `Dry-run logged ✓ (${action.toUpperCase()} ${body.symbol})` : `Sent ✓ ticket: ${j.ticket || JSON.stringify(j.result).slice(0, 60)}`; }
+    else {
+      line.className = "status-line okk";
+      const ticket = (j.bridge && (j.bridge.ticket || j.bridge.deal)) || (j.result && j.result.orderId);
+      line.textContent = j.dryRun
+        ? `Dry-run logged ✓ (${action.toUpperCase()} ${body.symbol}) — tracked below`
+        : `Sent ✓ ${ticket ? "ticket: " + ticket : ""} — tracked below`;
+      // register with the Auto Trade Manager
+      if (window.TGTradeMgr) {
+        const lastPrice = await fetch(`/api/market/ticker?symbol=${encodeURIComponent(body.symbol)}`)
+          .then((r) => r.json()).then((t) => parseFloat(t.lastPrice)).catch(() => null);
+        await window.TGTradeMgr.track({
+          symbol: body.symbol, side: action,
+          entry: lastPrice > 0 ? lastPrice : 0,
+          sl, tp, qty: vol,
+          auto_be: $("#autoBE").checked, auto_partial: $("#autoPartial").checked,
+          bridge_ticket: target === "mt5" && !j.dryRun ? ticket : null,
+          target: j.dryRun ? "paper" : target,
+        });
+      }
+    }
   } catch (e) { line.className = "status-line err"; line.textContent = "Request failed: " + e.message; }
   refreshPositions();
 }
@@ -397,9 +515,10 @@ async function saveKeys() {
   const venue = $("#keyVenue").value;
   const apiKey = $("#keyKey").value.trim(), apiSecret = $("#keySec").value.trim();
   if (!apiKey || !apiSecret) { alert("Paste both key and secret."); return; }
+  if (venue.endsWith("_main") && !confirm("⚠ This is a MAINNET venue — keys can move REAL money. Save?")) return;
   const r = await fetch("/api/auth/credentials", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ venue, apiKey, apiSecret, label: "testnet" }),
+    body: JSON.stringify({ venue, apiKey, apiSecret, label: venue.endsWith("_main") ? "mainnet" : "testnet" }),
   });
   const j = await r.json();
   if (j.ok) { alert("Keys saved (encrypted) ✓"); $("#keyKey").value = ""; $("#keySec").value = ""; refreshExecStatus(); }
@@ -475,14 +594,28 @@ async function boot() {
   // execution
   $("#buyBtn").onclick = () => oneClick("buy");
   $("#sellBtn").onclick = () => oneClick("sell");
-  $("#execTarget").onchange = () => {
-    const v = $("#execTarget").value;
-    $("#mt5SymRow").style.display = v === "mt5" ? "flex" : "none";
-    $("#execVol").value = v === "mt5" ? "0.01" : "0.001";
+  $("#execTarget").onchange = syncExecUI;
+  $("#binMode").onchange = syncExecUI;
+  syncExecUI();
+  $("#mt5Server").onchange = () => {
+    $("#mt5CustomRow").style.display = $("#mt5Server").value === "custom" ? "flex" : "none";
   };
-  $("#execTarget").dispatchEvent(new Event("change"));
+  $("#mt5SaveBtn").onclick = saveMt5Creds;
+  $("#mt5ConnBtn").onclick = connectMt5;
+  loadMt5Creds();
   $("#refreshPos").onclick = refreshPositions;
   $("#saveKeysBtn").onclick = saveKeys;
+  $("#keyVenue").onchange = () => {
+    $("#mainnetKeyWarn").style.display = $("#keyVenue").value.endsWith("_main") ? "block" : "none";
+  };
+
+  // MTF heatmap + auto trade manager
+  if (window.TGMTF) {
+    window.TGMTF.init({ getSymbol: () => state.symbol });
+  }
+  if (window.TGTradeMgr) {
+    window.TGTradeMgr.init();
+  }
 
   // analysis
   $("#saveAnalysisBtn").onclick = openAnalysisModal;
@@ -498,7 +631,7 @@ async function boot() {
 
   $("#symInput").addEventListener("change", (e) => {
     const v = e.target.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (v) { state.symbol = v; loadData(); }
+    if (v) { state.symbol = v; loadData(); if (window.TGMTF) window.TGMTF.onSymbolChange(); }
   });
 
   refreshExecStatus();

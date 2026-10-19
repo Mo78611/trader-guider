@@ -18,7 +18,7 @@
 window.TGSignals = (function () {
   "use strict";
 
-  const METHOD_LABELS = { ict: "ICT", smc: "SMC", vsa: "VSA", priceaction: "Price Action" };
+  const METHOD_LABELS = { ict: "ICT", smc: "SMC", vsa: "VSA", priceaction: "Price Action", trendsr: "Trendlines + S/R" };
   const FRESH_BARS = 10; // a signal older than this can't join confluence
 
   function num(x) { return typeof x === "number" && isFinite(x); }
@@ -188,6 +188,135 @@ window.TGSignals = (function () {
     return null;
   }
 
+  /* ---------------- Trendlines + S/R evaluator ----------------
+   * Two valid play types:
+   *   A) BREAKOUT: candle closes beyond a trendline / horizontal zone AND
+   *      (a retest holds within 6 bars, or a single strong close > 0.5×ATR
+   *      beyond the line). Entry = close; SL = beyond the broken structure;
+   *      TP = next opposing zone / swing liquidity.
+   *   B) BOUNCE (retest): rejection wick touches a trendline / zone and the
+   *      candle closes back in the bounce direction. Entry = close;
+   *      SL = beyond the zone extreme; TP = opposing zone.            */
+  function lineValueAt(tl, idx) {
+    // project the fitted line to candle index idx
+    const p0 = tl.points[0], p1 = tl.points[1];
+    const span = tl.endIdx - tl.startIdx;
+    if (!(span > 0)) return null;
+    const frac = (idx - tl.startIdx) / span;
+    return p0.price + (p1.price - p0.price) * frac;
+  }
+
+  function evalTrendSR(ctx) {
+    if (!ctx || ctx.dead || !ctx.candles || ctx.candles.length < 30) return null;
+    const { candles, atrVal, swings, srZones, trendlines } = ctx;
+    if (!num(atrVal) || atrVal <= 0) return null;
+    const n = candles.length;
+    const last = candles[n - 1];
+    if (!last || !num(last.close)) return null;
+
+    // build tradeable levels: trendlines + horizontal zones
+    const levels = [];
+    for (const tl of trendlines || []) {
+      const lv = lineValueAt(tl, n - 1);
+      if (!num(lv)) continue;
+      levels.push({ kind: "trendline", dir: tl.type, value: lv, ref: tl,
+        label: `${tl.type} trendline (${tl.touches} touches)` });
+    }
+    for (const z of srZones || []) {
+      if (!num(z.top) || !num(z.bottom)) continue;
+      levels.push({ kind: "zone", dir: z.dir, top: z.top, bottom: z.bottom,
+        value: (z.top + z.bottom) / 2, ref: z,
+        label: `${z.dir} zone (${z.touches} touches)` });
+    }
+    if (!levels.length) return null;
+
+    function levelHit(lv, c, bull) {
+      if (lv.kind === "trendline") {
+        const lvNow = lineValueAt(lv.ref, candles.indexOf(c));
+        if (!num(lvNow)) return false;
+        if (bull) return c.low <= lvNow + 0.1 * atrVal && c.close > lvNow;
+        return c.high >= lvNow - 0.1 * atrVal && c.close < lvNow;
+      }
+      // zone
+      if (bull) return c.low <= lv.top + 0.1 * atrVal && c.low >= lv.bottom - 0.2 * atrVal && c.close > lv.bottom;
+      return c.high >= lv.bottom - 0.1 * atrVal && c.high <= lv.top + 0.2 * atrVal && c.close < lv.top;
+    }
+
+    for (const dir of ["buy", "sell"]) {
+      const bull = dir === "buy";
+      // levels that can be traded in this direction:
+      //  buy  <- support (bounce) or resistance (breakout)
+      //  sell <- resistance (bounce) or support (breakout)
+      const bounceLevels = levels.filter((l) => l.dir === (bull ? "support" : "resistance"));
+      const breakLevels = levels.filter((l) => l.dir === (bull ? "resistance" : "support"));
+
+      // --- A) breakout: strong close beyond the level ---
+      for (const lv of breakLevels) {
+        const edge = lv.kind === "trendline" ? lv.value : (bull ? lv.top : lv.bottom);
+        const dist = bull ? last.close - edge : edge - last.close;
+        if (!(dist > 0)) continue;
+        const strong = dist > 0.5 * atrVal;
+        // retest check: did price come back and hold within last 6 bars?
+        let retest = false;
+        for (let j = n - 2; j >= Math.max(0, n - 7); j--) {
+          const c = candles[j];
+          if (!c || !num(c.low) || !num(c.high) || !num(c.close)) continue;
+          const lvj = lv.kind === "trendline" ? lineValueAt(lv.ref, j) : edge;
+          if (!num(lvj)) continue;
+          const touched = bull
+            ? (c.low <= lvj + 0.15 * atrVal && c.close > lvj)
+            : (c.high >= lvj - 0.15 * atrVal && c.close < lvj);
+          if (touched) { retest = true; break; }
+        }
+        if (!strong && !retest) continue;
+        const entry = last.close;
+        const sl = bull ? edge - 0.3 * atrVal : edge + 0.3 * atrVal;
+        if (bull ? sl >= entry : sl <= entry) continue;
+        const risk = Math.abs(entry - sl);
+        const liq = nearestLiquidity(dir, entry, swings);
+        const tp1 = liq[0] ? liq[0].price : (bull ? entry + 2 * risk : entry - 2 * risk);
+        const tp2 = liq[1] ? liq[1].price : (bull ? tp1 + risk : tp1 - risk);
+        return {
+          method: "trendsr", direction: dir, entry, sl, tp1, tp2,
+          confidence: retest ? 76 : 68,
+          reasons: [`breakout of ${lv.label}${retest ? " + retest held" : ""}`],
+          barIdx: n - 1, barTime: last.time, tag: "Trendlines + S/R",
+        };
+      }
+
+      // --- B) bounce: rejection wick at the level + directional close ---
+      for (const lv of bounceLevels) {
+        const c = last;
+        const wickOK = bull
+          ? (Math.min(c.open, c.close) - c.low) > 0.5 * atrVal * 0.4 && c.close > c.open
+          : (c.high - Math.max(c.open, c.close)) > 0.5 * atrVal * 0.4 && c.close < c.open;
+        if (!wickOK) continue;
+        if (!levelHit(lv, c, bull)) continue;
+        const entry = c.close;
+        const extreme = lv.kind === "trendline"
+          ? lineValueAt(lv.ref, n - 1)
+          : (bull ? lv.bottom : lv.top);
+        if (!num(extreme)) continue;
+        const sl = bull ? extreme - 0.3 * atrVal : extreme + 0.3 * atrVal;
+        if (bull ? sl >= entry : sl <= entry) continue;
+        const risk = Math.abs(entry - sl);
+        const opp = (srZones || [])
+          .filter((z) => z.dir === (bull ? "resistance" : "support") &&
+            (bull ? z.bottom > entry : z.top < entry))
+          .sort((a, b) => (bull ? a.bottom - b.bottom : b.top - a.top))[0];
+        const tp1 = opp ? (bull ? opp.bottom : opp.top)
+          : (bull ? entry + 2 * risk : entry - 2 * risk);
+        return {
+          method: "trendsr", direction: dir, entry, sl, tp1, tp2: tp1,
+          confidence: 66,
+          reasons: [`rejection bounce off ${lv.label}`],
+          barIdx: n - 1, barTime: c.time, tag: "Trendlines + S/R",
+        };
+      }
+    }
+    return null;
+  }
+
   /* ---------------- Confluence engine ---------------- */
   function confluence(activeMethods, evals, lastIdx) {
     const fresh = [];
@@ -299,7 +428,7 @@ window.TGSignals = (function () {
 
   return {
     METHOD_LABELS, FRESH_BARS, fmtP,
-    evalICTSMC, evalVSA, evalPriceAction,
+    evalICTSMC, evalVSA, evalPriceAction, evalTrendSR,
     confluence, rrRatio, render,
   };
 })();

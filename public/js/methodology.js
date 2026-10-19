@@ -379,6 +379,60 @@ window.TGMethodology = (function () {
     return out;
   }
 
+  /* ---------------- Auto trendlines (least-squares through swing pivots) ----
+   * A valid trendline needs:
+   *   - at least 3 swing pivots touching the line within 0.25×ATR,
+   *   - the line to span at least 20 bars,
+   *   - resistance = through swing HIGHS (descending or near-flat),
+   *     support    = through swing LOWS  (ascending  or near-flat).
+   * Returns [{type, slope, points:[{time,price}], touches, startIdx, endIdx}] */
+  function trendlines(candles, swingsArr, atrA) {
+    const out = [];
+    const n = candles.length;
+    const atr = lastValid(atrA);
+    if (!num(atr) || atr <= 0 || !okArr(swingsArr) || n < 25) return out;
+    const tol = 0.25 * atr;
+    for (const mode of ["high", "low"]) {
+      const pivs = swingsArr.filter((s) => s.type === mode && s.idx >= n - 90);
+      if (pivs.length < 3) continue;
+      // try fits: use the earliest pivot as anchor and extend
+      for (let a = 0; a < pivs.length - 2; a++) {
+        const subset = pivs.slice(a);
+        const xs = subset.map((s) => s.idx);
+        const ys = subset.map((s) => s.price);
+        const slope = linSlope(subset.map((s) => ({ x: s.idx, y: s.price })));
+        if (!num(slope)) continue;
+        // direction sanity: resistance should not rise steeply, support should not fall steeply
+        const perBar = atr / 40;
+        if (mode === "high" && slope > perBar) continue;
+        if (mode === "low" && slope < -perBar) continue;
+        // count touches: |price - line(idx)| <= tol
+        const x0 = xs[0], y0 = ys[0];
+        let touches = 0;
+        for (let k = 0; k < subset.length; k++) {
+          const lineY = y0 + slope * (xs[k] - x0);
+          if (Math.abs(ys[k] - lineY) <= tol) touches++;
+        }
+        const span = xs[xs.length - 1] - xs[0];
+        if (touches >= 3 && span >= 20) {
+          const t1 = candles[xs[0]].time, t2 = candles[xs[xs.length - 1]].time;
+          const p1 = y0, p2 = y0 + slope * span;
+          out.push({
+            type: mode === "high" ? "resistance" : "support",
+            slope,
+            touches,
+            startIdx: xs[0], endIdx: xs[xs.length - 1],
+            points: [{ time: t1, price: p1 }, { time: t2, price: p2 }],
+            // value of the line at the last bar (for signal math)
+            lastValue: y0 + slope * ((n - 1) - xs[0]),
+          });
+          break; // one line per side is enough
+        }
+      }
+    }
+    return out;
+  }
+
   /* ---------------- Classical chart patterns ---------------- */
   function spansGap(pivots, gaps) {
     if (!gaps || !gaps.size) return false;
@@ -603,6 +657,7 @@ window.TGMethodology = (function () {
       paSetups: null, // filled below (needs srZones)
       patterns: classicalPatterns(candles, sw, atrVal, gaps),
       elliott: elliott(candles, sw, atrVal, gaps),
+      trendlines: trendlines(candles, sw, atrA),
     };
   }
 
@@ -619,7 +674,7 @@ window.TGMethodology = (function () {
   return {
     atr: atrArray, lastValid, sma: smaArr, ema: emaArr,
     swings, marketStructure, fvgs, orderBlocks, liquiditySweeps,
-    premiumDiscount, killzones, vsaSignals, srZones, paSetups,
+    premiumDiscount, killzones, vsaSignals, srZones, paSetups, trendlines,
     headShoulders, doubleTopsBottoms, wedges, flags, classicalPatterns,
     elliott, deadMarket, timeGaps, analyze,
   };

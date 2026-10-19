@@ -57,7 +57,7 @@ function toPg(sql) {
     .replace(/\?/g, () => `$${++i}`);
 }
 // Tables whose INSERTs need the new id back (RETURNING id on pg).
-const ID_TABLES = new Set(["users", "api_credentials", "analyses"]);
+const ID_TABLES = new Set(["users", "api_credentials", "analyses", "paper_trades"]);
 
 const db = {
   isPostgres,
@@ -165,6 +165,32 @@ async function ensureSchema() {
         is_public   INTEGER NOT NULL DEFAULT 1,
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS mt5_credentials (
+        user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        server      TEXT NOT NULL DEFAULT '',
+        account_id  TEXT NOT NULL DEFAULT '',
+        password_enc TEXT NOT NULL DEFAULT '',
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS paper_trades (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        symbol      TEXT NOT NULL DEFAULT '',
+        side        TEXT NOT NULL DEFAULT 'buy',
+        entry       DOUBLE PRECISION NOT NULL DEFAULT 0,
+        sl          DOUBLE PRECISION NOT NULL DEFAULT 0,
+        tp          DOUBLE PRECISION NOT NULL DEFAULT 0,
+        qty         DOUBLE PRECISION NOT NULL DEFAULT 0,
+        status      TEXT NOT NULL DEFAULT 'open',
+        be_moved    INTEGER NOT NULL DEFAULT 0,
+        partial_done INTEGER NOT NULL DEFAULT 0,
+        auto_be     INTEGER NOT NULL DEFAULT 1,
+        auto_partial INTEGER NOT NULL DEFAULT 1,
+        bridge_ticket BIGINT,
+        target      TEXT NOT NULL DEFAULT 'paper',
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        closed_at   TIMESTAMPTZ
+      );
     `);
   } else {
     await db.exec(`
@@ -205,6 +231,32 @@ async function ensureSchema() {
         snapshot    TEXT,
         is_public   INTEGER NOT NULL DEFAULT 1,
         created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS mt5_credentials (
+        user_id      INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        server       TEXT NOT NULL DEFAULT '',
+        account_id   TEXT NOT NULL DEFAULT '',
+        password_enc TEXT NOT NULL DEFAULT '',
+        updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS paper_trades (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        symbol       TEXT NOT NULL DEFAULT '',
+        side         TEXT NOT NULL DEFAULT 'buy',
+        entry        REAL NOT NULL DEFAULT 0,
+        sl           REAL NOT NULL DEFAULT 0,
+        tp           REAL NOT NULL DEFAULT 0,
+        qty          REAL NOT NULL DEFAULT 0,
+        status       TEXT NOT NULL DEFAULT 'open',
+        be_moved     INTEGER NOT NULL DEFAULT 0,
+        partial_done INTEGER NOT NULL DEFAULT 0,
+        auto_be      INTEGER NOT NULL DEFAULT 1,
+        auto_partial INTEGER NOT NULL DEFAULT 1,
+        bridge_ticket INTEGER,
+        target       TEXT NOT NULL DEFAULT 'paper',
+        created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+        closed_at    TEXT
       );
     `);
     // Migration: link local users to Firebase accounts (added 2026-10-19).

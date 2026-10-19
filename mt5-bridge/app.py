@@ -75,6 +75,60 @@ def health():
     })
 
 
+@app.get("/api/mt5/status")
+def mt5_status():
+    """Lightweight login state — used by the web UI status pill."""
+    if not MT5_AVAILABLE:
+        return jsonify({"terminal": False, "logged_in": False, "reason": "mt5_unavailable"})
+    if not mt5.initialize():
+        return jsonify({"terminal": False, "logged_in": False, "reason": "init_failed"})
+    acc = mt5.account_info()
+    if acc is None:
+        return jsonify({"terminal": True, "logged_in": False})
+    return jsonify({
+        "terminal": True, "logged_in": True,
+        "login": acc.login, "server": acc.server, "currency": acc.currency,
+        "trade_mode": acc.trade_mode,  # 0 demo, 1 contest, 2 real
+        "trade_allowed": bool(getattr(acc, "trade_allowed", True)),
+    })
+
+
+@app.post("/api/mt5/connect")
+def mt5_connect():
+    """Log the local MT5 terminal into an account.
+    Body: {server, account_id, password}.
+    The password is used ONLY for this login call — it is never stored,
+    never logged, never returned."""
+    body = request.get_json(force=True, silent=True) or {}
+    server = str(body.get("server", "")).strip()
+    try:
+        login = int(body.get("account_id", 0) or 0)
+    except (TypeError, ValueError):
+        login = 0
+    password = str(body.get("password", ""))
+    if not server or not login or not password:
+        return jsonify({"error": "server_account_password_required"}), 400
+    if not MT5_AVAILABLE:
+        return jsonify({"error": "mt5_unavailable"}), 500
+    if not mt5.initialize():
+        return jsonify({"error": "mt5_init_failed", "detail": str(mt5.last_error())}), 500
+    ok = mt5.login(login, password=password, server=server)
+    # drop the secret from memory as soon as the call is done
+    password = None
+    body = None
+    if not ok:
+        return jsonify({"error": "login_failed", "detail": str(mt5.last_error())}), 401
+    acc = mt5.account_info()
+    if acc is None:
+        return jsonify({"error": "login_failed", "detail": "no account info after login"}), 401
+    log.info("MT5 login ok: %s @ %s (mode=%s)", acc.login, acc.server, acc.trade_mode)
+    return jsonify({"ok": True, "account": {
+        "login": acc.login, "server": acc.server, "currency": acc.currency,
+        "balance": acc.balance, "equity": acc.equity, "margin_free": acc.margin_free,
+        "trade_mode": acc.trade_mode, "name": acc.name,
+    }})
+
+
 @app.get("/api/mt5/account")
 def account():
     if not MT5_AVAILABLE:
@@ -208,6 +262,80 @@ def close():
     if result is None:
         return jsonify({"error": "close_failed", "detail": str(mt5.last_error())}), 502
     return jsonify({"retcode": result.retcode, "ticket": ticket})
+
+
+@app.post("/api/mt5/modify")
+def modify():
+    """Move SL/TP of an open position (auto break-even path).
+    Body: {ticket, sl, tp?}. Goes through the same live-trading gate."""
+    body = request.get_json(force=True, silent=True) or {}
+    try:
+        ticket = int(body.get("ticket", 0) or 0)
+    except (TypeError, ValueError):
+        ticket = 0
+    sl = float(body.get("sl", 0) or 0)
+    tp = float(body.get("tp", 0) or 0)
+    if not ticket or sl <= 0:
+        return jsonify({"error": "ticket_and_sl_required"}), 400
+    if DRY_RUN:
+        log.info("DRY_RUN modify logged only: ticket=%s sl=%s tp=%s", ticket, sl, tp)
+        return jsonify({"dryRun": True, "ticket": ticket, "sl": sl,
+                        "note": "DRY_RUN=true — nothing sent to broker."})
+    ok, err = guard_live()
+    if not ok:
+        return err
+    poss = mt5.positions_get(ticket=ticket)
+    if not poss:
+        return jsonify({"error": "position_not_found"}), 404
+    p = poss[0]
+    req = {"action": mt5.TRADE_ACTION_SLTP, "symbol": p.symbol,
+           "position": ticket, "sl": sl,
+           "magic": 20261019, "comment": "trader-guider-modify"}
+    if tp > 0:
+        req["tp"] = tp
+    result = mt5.order_send(req)
+    if result is None:
+        return jsonify({"error": "modify_failed", "detail": str(mt5.last_error())}), 502
+    log.info("Modified ticket=%s retcode=%s sl=%s", ticket, result.retcode, sl)
+    return jsonify({"retcode": result.retcode, "ticket": ticket, "sl": sl})
+
+
+@app.post("/api/mt5/close_partial")
+def close_partial():
+    """Close part of a position (auto-partial path). Body: {ticket, volume}."""
+    body = request.get_json(force=True, silent=True) or {}
+    try:
+        ticket = int(body.get("ticket", 0) or 0)
+    except (TypeError, ValueError):
+        ticket = 0
+    volume = float(body.get("volume", 0) or 0)
+    if not ticket or volume <= 0:
+        return jsonify({"error": "ticket_and_volume_required"}), 400
+    if DRY_RUN:
+        log.info("DRY_RUN close_partial logged only: ticket=%s volume=%s", ticket, volume)
+        return jsonify({"dryRun": True, "ticket": ticket, "volume": volume,
+                        "note": "DRY_RUN=true — nothing sent to broker."})
+    ok, err = guard_live()
+    if not ok:
+        return err
+    poss = mt5.positions_get(ticket=ticket)
+    if not poss:
+        return jsonify({"error": "position_not_found"}), 404
+    p = poss[0]
+    if volume >= p.volume:
+        return jsonify({"error": "use_close_for_full", "detail": "volume >= position volume; use /close instead"}), 400
+    tick = mt5.symbol_info_tick(p.symbol)
+    close_type = mt5.ORDER_TYPE_SELL if p.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY
+    price = tick.bid if close_type == mt5.ORDER_TYPE_SELL else tick.ask
+    req = {"action": mt5.TRADE_ACTION_DEAL, "symbol": p.symbol, "volume": volume,
+           "type": close_type, "position": ticket, "price": price, "deviation": 20,
+           "magic": 20261019, "comment": "trader-guider-partial",
+           "type_time": mt5.ORDER_TIME_GTC, "type_filling": mt5.ORDER_FILLING_IOC}
+    result = mt5.order_send(req)
+    if result is None:
+        return jsonify({"error": "close_partial_failed", "detail": str(mt5.last_error())}), 502
+    log.info("Partial close ticket=%s vol=%s retcode=%s", ticket, volume, result.retcode)
+    return jsonify({"retcode": result.retcode, "ticket": ticket, "volume": volume})
 
 
 if __name__ == "__main__":

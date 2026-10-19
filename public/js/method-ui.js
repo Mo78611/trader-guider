@@ -68,8 +68,17 @@ window.TGMethodUI = (function () {
         flag: "Flags",
       },
     },
+    trendsr: {
+      label: "Trendlines + S/R", color: "#f0b429",
+      settings: {
+        trendlines: "Auto Trendlines",
+        zones: "Horizontal S/R Zones",
+        breakouts: "Breakout Signals",
+        retests: "Retest / Bounce Signals",
+      },
+    },
   };
-  const EVAL_METHODS = ["ict", "smc", "vsa", "priceaction"]; // can emit signals
+  const EVAL_METHODS = ["ict", "smc", "vsa", "priceaction", "trendsr"]; // can emit signals
   const SERIES_CAP = 140;
   const TF_SEC = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "4h": 14400, "1d": 86400, "1w": 604800 };
   const BULL = "#26a69a", BEAR = "#ef5350", DIM = "#3a4358";
@@ -317,6 +326,30 @@ window.TGMethodUI = (function () {
     }
   }
 
+  function renderTrendSR(rc, ctx, settings, t0, t1) {
+    // trendlines
+    if (settings.trendlines) {
+      for (const tl of ctx.trendlines || []) {
+        const c = tl.type === "support" ? "rgba(38,166,154,0.9)" : "rgba(239,83,80,0.9)";
+        const pts = tl.points.map((p) => ({ time: p.time, price: p.price }));
+        // extend a little to the right for visibility
+        const span = tl.endIdx - tl.startIdx;
+        if (span > 0 && pts.length === 2) {
+          pts.push({ time: t1, price: tl.lastValue });
+        }
+        rc.line(pts, { color: c, lineWidth: 1, title: `${tl.type} TL ×${tl.touches}` });
+      }
+    }
+    // horizontal zones (reuse PA renderer pieces but respect this method's toggle)
+    if (settings.zones) {
+      for (const z of ctx.srZones || []) {
+        const c = z.dir === "support" ? "rgba(38,166,154,0.7)" : "rgba(239,83,80,0.7)";
+        hline(rc, z.top, c, 0, 1, `${z.dir} ×${z.touches}`, t0, t1);
+        hline(rc, z.bottom, c, 0, 1, "", t0, t1);
+      }
+    }
+  }
+
   function slopeOf(pts) {
     const n = pts.length;
     if (n < 2) return 0;
@@ -377,6 +410,8 @@ window.TGMethodUI = (function () {
         renderElliott(rc, ctx, set);
       } else if (key === "patterns") {
         renderPatterns(rc, ctx, set, t0, t1);
+      } else if (key === "trendsr") {
+        renderTrendSR(rc, ctx, set, t0, t1);
       }
     } catch (_e) { /* one broken renderer must not kill the rest */ }
   }
@@ -391,6 +426,22 @@ window.TGMethodUI = (function () {
       if (active.indexOf("smc") >= 0) evals.smc = G.evalICTSMC(ctx, "smc");
       if (active.indexOf("vsa") >= 0) evals.vsa = G.evalVSA(ctx);
       if (active.indexOf("priceaction") >= 0) evals.priceaction = G.evalPriceAction(ctx);
+      if (active.indexOf("trendsr") >= 0) {
+        const tset = (S.methods.trendsr && S.methods.trendsr.settings) || {};
+        // at least one signal type must be enabled for this method
+        if (tset.breakouts !== false || tset.retests !== false) {
+          const s = G.evalTrendSR(ctx);
+          if (s) {
+            const isBreakout = (s.reasons[0] || "").indexOf("breakout") === 0;
+            const isBounce = (s.reasons[0] || "").indexOf("rejection bounce") === 0;
+            if ((isBreakout && tset.breakouts !== false) ||
+                (isBounce && tset.retests !== false) ||
+                (!isBreakout && !isBounce)) {
+              evals.trendsr = s;
+            }
+          }
+        }
+      }
     } catch (_e) { /* evaluator fault -> treat as no signal */ }
     const lastIdx = ctx.candles.length - 1;
     try {
