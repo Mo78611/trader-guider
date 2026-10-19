@@ -72,12 +72,23 @@ table.mini th{color:var(--dim);font-weight:600}
         <option value="15m">15m</option><option value="1h" selected>1h</option>
         <option value="4h">4h</option><option value="1d">1d</option>
       </select>
-      <select id="labLook">
+      <select id="labDepth">
         <option value="500" selected>500 bars</option>
-        <option value="1000">1000 bars</option>
-        <option value="2000">2000 bars</option>
+        <option value="1000">1k bars</option>
+        <option value="2000">2k bars</option>
+        <option value="10000">10k bars (deep)</option>
+        <option value="50000">50k bars (deep)</option>
+        <option value="100000">100k bars (deep)</option>
+        <option value="300000">300k bars (deep)</option>
       </select>
       <button class="btn primary" id="runBt">▶ Run backtest</button>
+    </div>
+    <div style="color:var(--dim);font-size:12px;margin-top:6px">Deep runs (10k+) page real Binance history into a background worker — the page never freezes. Deep history is crypto-only; forex/stocks show what Yahoo has.</div>
+    <div id="btProgWrap" style="display:none;margin-top:10px">
+      <div style="height:10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden">
+        <div id="btProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),#f0b429);transition:width .25s"></div>
+      </div>
+      <div id="btProgLabel" style="color:var(--dim);font-size:12.5px;margin-top:5px"></div>
     </div>
     <div id="btStatus" style="margin-top:10px;color:var(--dim);font-size:13px"></div>
     <div id="btResult" style="display:none">
@@ -89,6 +100,11 @@ table.mini th{color:var(--dim);font-weight:600}
       <table class="mini"><thead><tr><th>Condition</th><th>Trades</th><th>Wins</th><th>Win %</th></tr></thead>
       <tbody id="btConds"></tbody></table>
       <h4 style="margin:12px 0 4px">Recent trades</h4>
+      <div id="tradePager" style="display:none;gap:10px;align-items:center;margin-bottom:6px">
+        <button class="btn" id="tradePrev">← Prev</button>
+        <span id="tradePageInfo" style="color:var(--dim);font-size:12.5px"></span>
+        <button class="btn" id="tradeNext">Next →</button>
+      </div>
       <table class="mini"><thead><tr><th>Time</th><th>Dir</th><th>Entry</th><th>R</th><th>Conditions</th></tr></thead>
       <tbody id="btTrades"></tbody></table>
     </div>

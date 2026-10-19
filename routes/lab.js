@@ -45,6 +45,27 @@ router.post("/backtest", requireAuth, async (req, res) => {
   }
 });
 
+/* ---------------- deep klines (paginated, for the Web-Worker backtester) ----
+ * GET /api/lab/klines-deep?symbol=BTCUSDT&interval=1h&limit=10000&endTime=169…
+ * Returns up to `limit` candles (max 10k/call) ending at endTime (ms, default
+ * now), oldest→newest, plus nextEndTime cursor for the client to page further.
+ * Deep history works for crypto only; forex/stocks return deep:false + note. */
+router.get("/klines-deep", requireAuth, async (req, res) => {
+  try {
+    const symbol = cleanSymbol(req.query.symbol);
+    const interval = INTERVALS.has(req.query.interval) ? req.query.interval : "1h";
+    const limit = Math.max(1000, Math.min(parseInt(req.query.limit, 10) || 10000, 10000));
+    const endTime = req.query.endTime ? parseInt(req.query.endTime, 10) : null;
+    if (endTime != null && !(endTime > 0)) return res.status(400).json({ error: "bad_endTime" });
+    const out = await lab.fetchDeep({ symbol, interval, limit, endTime });
+    res.json({ symbol, interval, ...out });
+  } catch (e) {
+    const msg = String(e.message || "");
+    console.error("[lab] klines-deep failed:", msg.slice(0, 200));
+    res.status(502).json({ error: "market_data_unavailable" });
+  }
+});
+
 /* ---------------- footprints ---------------- */
 const FP_TYPES = new Set([
   "signal", "drawing:trendline", "drawing:hline", "drawing:fib",

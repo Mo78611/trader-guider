@@ -10,25 +10,51 @@
 window.TGNews = (function () {
   "use strict";
 
-  const S = { getSymbol: null, getTrend: null, timer: null, open: false, busy: false };
+  const S = { getSymbol: null, getTrend: null, timer: null, open: false, busy: false, cdTimer: null };
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   }
-  function localTime(iso) {
+  /* Exact local date/time with timezone, e.g. "Wed, Oct 29 · 18:00 PKT" */
+  function localDateTime(iso) {
     try {
       const d = new Date(iso);
-      return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const date = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+      const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+      let tz = "";
+      try {
+        tz = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" })
+          .formatToParts(d).find((p) => p.type === "timeZoneName");
+        tz = tz ? " " + tz.value : "";
+      } catch (_e) {}
+      return `${date} · ${time}${tz}`;
     } catch (_e) { return ""; }
   }
-  function countdown(iso) {
+  /* Live countdown parts; null when released */
+  function cdParts(iso) {
     const ms = new Date(iso).getTime() - Date.now();
-    if (ms < 0) return "now";
-    const h = Math.floor(ms / 3600e3), d = Math.floor(h / 24);
-    if (d > 0) return `${d}d ${h % 24}h`;
-    if (h > 0) return `${h}h ${Math.floor((ms % 3600e3) / 60e3)}m`;
-    return `${Math.max(1, Math.floor(ms / 60e3))}m`;
+    if (ms <= 0) return null;
+    const s = Math.floor(ms / 1000);
+    const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60), sec = s % 60;
+    const p2 = (n) => String(n).padStart(2, "0");
+    if (d > 0) return `in ${d}d ${p2(h)}h ${p2(m)}m`;
+    return `in ${p2(h)}h ${p2(m)}m ${p2(sec)}s`;
+  }
+  /* One 1s ticker updates every countdown on screen (tabular numbers, no layout shift) */
+  function tickCountdowns() {
+    document.querySelectorAll("[data-cd]").forEach((el) => {
+      const iso = el.getAttribute("data-time");
+      if (!iso) return;
+      const parts = cdParts(iso);
+      if (!parts) {
+        el.textContent = "Released";
+        el.classList.add("done");
+        return;
+      }
+      el.textContent = parts;
+    });
   }
 
   function buildUI() {
@@ -107,18 +133,24 @@ window.TGNews = (function () {
     box.innerHTML = events.slice(0, 8).map((ev) => {
       const b = ev.bias || {};
       const cls = b.direction === "bullish" ? "up" : b.direction === "bearish" ? "down" : "flat";
+      const cd = cdParts(ev.time);
       return `<div class="news-ev">
         <div class="news-ev-top">
           <span class="impact-dot t${ev.tier || 2}"></span>
           <b>${esc(ev.title)}</b>
-          <span class="news-when">${esc(localTime(ev.time))} · in ${esc(countdown(ev.time))}</span>
+        </div>
+        <div class="news-ev-when">
+          <span>📅 ${esc(localDateTime(ev.time))}</span>
+          <span class="news-cd" data-cd data-time="${esc(ev.time)}">${cd ? esc(cd) : "Released"}</span>
         </div>
         <div class="news-fp">${ev.forecast != null ? `Forecast <b>${esc(ev.forecast)}</b>` : "Forecast —"}
           &nbsp;·&nbsp; ${ev.previous != null ? `Last <b>${esc(ev.previous)}</b>` : "Last —"}</div>
         <div class="news-bias ${cls}">${esc(b.text || "")}</div>
-        <div class="news-move">${esc(ev.expectedMove || "")}</div>
+        ${b.reasoning ? `<div class="news-why">💡 ${esc(b.reasoning)}</div>` : ""}
+        <div class="news-move">📊 ${esc(ev.expectedMove || "")}</div>
       </div>`;
     }).join("");
+    tickCountdowns();
   }
 
   async function refresh() {
@@ -147,6 +179,9 @@ window.TGNews = (function () {
     buildUI();
     clearInterval(S.timer);
     S.timer = setInterval(refresh, 30 * 60 * 1000);
+    // live 1s countdown ticker (only touches countdown spans)
+    clearInterval(S.cdTimer);
+    S.cdTimer = setInterval(tickCountdowns, 1000);
     // lazy first load: only fetch when the user opens the panel or sentiment
     // methodology is enabled (method-ui triggers via TGNews.prefetch)
   }

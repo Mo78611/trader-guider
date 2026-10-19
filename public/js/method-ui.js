@@ -77,6 +77,16 @@ window.TGMethodUI = (function () {
         retests: "Retest / Bounce Signals",
       },
     },
+    autodraw: {
+      label: "Chart Patterns + Trendlines + S/R", color: "#00e5a0",
+      settings: {
+        trendlines: "Auto Trendlines (fractal)",
+        zones: "S/R Zones (fractal clusters)",
+        patterns: "Chart Patterns (H&S, Triangles, Wedges, Double T/B)",
+        breakouts: "Breakout Alerts + Entry/TP",
+        commentary: "Live On-Chart Commentary",
+      },
+    },
     sentiment: {
       label: "Sentiment & News", color: "#26d3a0",
       settings: {
@@ -115,7 +125,7 @@ window.TGMethodUI = (function () {
   // settings keys whose value is a string, not a boolean (persisted as-is)
   const STR_SETTINGS = { smt: { refSymbol: "BTCUSDT" },
     displacement: { minScore: "75" }, magnets: { minScore: "50" } };
-  const EVAL_METHODS = ["ict", "smc", "vsa", "priceaction", "trendsr"]; // can emit signals
+  const EVAL_METHODS = ["ict", "smc", "vsa", "priceaction", "trendsr", "autodraw"]; // can emit signals
   const SERIES_CAP = 140;
   const TF_SEC = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "4h": 14400, "1d": 86400, "1w": 604800 };
   const BULL = "#26a69a", BEAR = "#ef5350", DIM = "#3a4358";
@@ -394,6 +404,31 @@ window.TGMethodUI = (function () {
     }
   }
 
+  /* ============ AUTO-DRAW ENGINE (TGAutoDraw) ============ */
+  // Analysis cache: computed once per renderAll, shared by render + evaluate + commentary.
+  function getAutodrawAnalysis(ctx) {
+    if (S.adCache && S.adCache.ctx === ctx) return S.adCache.analysis;
+    let analysis = null;
+    try {
+      if (window.TGAutoDraw) analysis = window.TGAutoDraw.analyze(ctx.candles);
+    } catch (_e) { analysis = null; }
+    S.adCache = { ctx, analysis };
+    return analysis;
+  }
+
+  function renderAutodraw(rc, ctx, set, t0, t1) {
+    const A = getAutodrawAnalysis(ctx);
+    if (!A || !window.TGAutoDraw) return;
+    try { window.TGAutoDraw.render(rc, A, null, t0, t1, set); } catch (_e) {}
+    // live commentary overlay (own HTML layer on the chart)
+    try {
+      const container = S.chart && S.chart.chartElement ? S.chart.chartElement() : null;
+      window.TGAutoDraw._setCandles(ctx.candles);
+      window.TGAutoDraw.bindReposition(S.chart);
+      window.TGAutoDraw.updateCommentary(S.chart, S.candleSeries, container, A, ctx.candles, set.commentary !== false);
+    } catch (_e) {}
+  }
+
   /* ---------------- sentiment & news zones ---------------- */
   function shortLabel(title) {
     const t = String(title || "").toUpperCase();
@@ -520,7 +555,7 @@ window.TGMethodUI = (function () {
     return ctx;
   }
 
-  function invalidateCache() { S.cache = { key: null, ctx: null }; }
+  function invalidateCache() { S.cache = { key: null, ctx: null }; S.adCache = null; }
 
   function renderMethod(key, st, ctx, rc, t0, t1, lo, hi) {
     const set = st.settings || {};
@@ -544,6 +579,8 @@ window.TGMethodUI = (function () {
         renderPatterns(rc, ctx, set, t0, t1);
       } else if (key === "trendsr") {
         renderTrendSR(rc, ctx, set, t0, t1);
+      } else if (key === "autodraw") {
+        renderAutodraw(rc, ctx, set, t0, t1);
       }
     } catch (_e) { /* one broken renderer must not kill the rest */ }
   }
@@ -572,6 +609,16 @@ window.TGMethodUI = (function () {
               evals.trendsr = s;
             }
           }
+        }
+      }
+      if (active.indexOf("autodraw") >= 0 && window.TGAutoDraw) {
+        const aset = (S.methods.autodraw && S.methods.autodraw.settings) || {};
+        if (aset.breakouts !== false) {
+          try {
+            const a = getAutodrawAnalysis(ctx);
+            const s = window.TGAutoDraw.evaluate(ctx, a);
+            if (s) evals.autodraw = s;
+          } catch (_e) {}
         }
       }
     } catch (_e) { /* evaluator fault -> treat as no signal */ }
@@ -644,6 +691,14 @@ window.TGMethodUI = (function () {
       renderMethod(key, st, ctx, rc, t0, t1, lo, hi);
     }
     // overlay modules manage their own rendering (async data / HTML overlays)
+    // auto-draw commentary: hide when the method is off
+    try {
+      const adSt = S.methods.autodraw;
+      if (window.TGAutoDraw && !(adSt && adSt.enabled)) {
+        const c = S.chart && S.chart.chartElement ? S.chart.chartElement() : null;
+        window.TGAutoDraw.updateCommentary(S.chart, S.candleSeries, c, null, [], false);
+      }
+    } catch (_e) {}
     try {
       const smtSt = S.methods.smt;
       if (window.TGSMT) window.TGSMT.apply(!!(smtSt && smtSt.enabled), smtSt ? smtSt.settings : {});

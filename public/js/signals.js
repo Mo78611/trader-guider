@@ -18,7 +18,7 @@
 window.TGSignals = (function () {
   "use strict";
 
-  const METHOD_LABELS = { ict: "ICT", smc: "SMC", vsa: "VSA", priceaction: "Price Action", trendsr: "Trendlines + S/R" };
+  const METHOD_LABELS = { ict: "ICT", smc: "SMC", vsa: "VSA", priceaction: "Price Action", trendsr: "Trendlines + S/R", autodraw: "Auto-Draw" };
   const FRESH_BARS = 10; // a signal older than this can't join confluence
 
   function num(x) { return typeof x === "number" && isFinite(x); }

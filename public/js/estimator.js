@@ -32,6 +32,7 @@ window.TGEstimator = (function () {
     elliott:      { label: "Elliott Wave",      freq: 2,  win: 55 },
     patterns:     { label: "Chart Patterns",    freq: 3,  win: 56 },
     trendsr:      { label: "Trendlines + S/R",  freq: 6,  win: 59 },
+    autodraw:     { label: "Auto-Draw",         freq: 5,  win: 62 },
     sentiment:    { label: "Sentiment & News",  freq: 5,  win: 54 },
     smt:          { label: "SMT Divergence",    freq: 4,  win: 58 },
     displacement: { label: "Displacement Radar",freq: 9,  win: 56 },

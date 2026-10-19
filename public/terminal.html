@@ -25,6 +25,13 @@
     <datalist id="symList"></datalist>
   </div>
   <div id="tfBar" style="display:flex;gap:4px"></div>
+  <select id="ctSel" title="Chart type" style="background:var(--panel2);border:1px solid var(--border);color:var(--dim);padding:6px 8px;border-radius:6px;font-size:13px;cursor:pointer">
+    <option value="candles">🕯️ Candles</option>
+    <option value="bars">📊 Bars</option>
+    <option value="heikin">🕯️ Heikin Ashi</option>
+    <option value="line">📈 Line</option>
+    <option value="area">🌊 Area</option>
+  </select>
   <button class="link" id="replayBtn" title="Bar replay / backtest">⏪ Replay</button>
   <div class="spacer"></div>
   <span id="tickerInfo" style="color:var(--dim);font-size:13px"></span>
@@ -269,6 +276,7 @@
 <script src="/js/drawings.js"></script>
 <script src="/js/methodology.js"></script>
 <script src="/js/signals.js"></script>
+<script src="/js/autodraw.js"></script>
 <script src="/js/method-ui.js"></script>
 <script src="/js/mtf.js"></script>
 <script src="/js/trademgr.js"></script>

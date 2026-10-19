@@ -9,9 +9,9 @@ const FOREX_LIST = ["EURUSD","GBPUSD","USDJPY","USDCHF","AUDUSD","USDCAD","NZDUS
 const STOCK_LIST = ["AAPL","TSLA","NVDA","MSFT","AMZN","META","GOOGL","GOOG","AMD","NFLX","AVGO","INTC","BA","DIS","PYPL","COIN","MSTR","PLTR","SOFI","NIO","BABA","TSM","JPM","V","WMT","XOM","PFE","KO","NKE","MRNA","ZM","SHOP","UBER","SNAP","RBLX","HOOD","DKNG","LCID","RIVN","F","GM","T","VZ","IBM","ORCL","CRM","ADBE","QCOM","TXN","SPY","QQQ","DIA","IWM"];
 
 const state = {
-  user: null, symbol: "BTCUSDT", timeframe: "1h",
+  user: null, symbol: "BTCUSDT", timeframe: "1h", chartType: "candles",
   candles: [], indicators: [], // [{id,type,period,...}]
-  chart: null, candleSeries: null, drawings: null,
+  chart: null, candleSeries: null, altSeries: null, drawings: null,
   indSeries: [], // [{id, list:[series]}]
 };
 let saveTimer = null;
@@ -24,7 +24,7 @@ async function saveState() {
     await fetch("/api/chart/state", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        symbol: state.symbol, timeframe: state.timeframe,
+        symbol: state.symbol, timeframe: state.timeframe, chartType: state.chartType,
         indicators: state.indicators,
         drawings: state.drawings ? state.drawings.get() : [],
         layout: {
@@ -69,9 +69,73 @@ function viewCandles() {
   if (window.TGReplay && window.TGReplay.active()) return window.TGReplay.visible();
   return state.candles;
 }
-function renderView() {
+/* ---------- chart types (candles / bars / heikin ashi / line / area) ----------
+ * The candlestick series stays the master reference for all modules
+ * (drawings, methodologies, priceToCoordinate). For bars/line/area we hide
+ * it and show a visual-only alt series. Indicators always use real candles. */
+function heikinAshi(candles) {
+  const out = [];
+  let haO = 0, haC = 0;
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+    haC = (c.open + c.high + c.low + c.close) / 4;
+    haO = i === 0 ? (c.open + c.close) / 2 : (haO + haC) / 2;
+    out.push({ time: c.time,
+      open: haO, high: Math.max(c.high, haO, haC),
+      low: Math.min(c.low, haO, haC), close: haC });
+  }
+  return out;
+}
+
+function applyPriceData() {
   const C = viewCandles();
-  state.candleSeries.setData(C);
+  const cs = state.candleSeries;
+  if (!cs) return;
+  // remove old alt series
+  if (state.altSeries) { try { state.chart.removeSeries(state.altSeries); } catch (_e) {} state.altSeries = null; }
+  const t = state.chartType || "candles";
+  if (t === "heikin") {
+    cs.applyOptions({ visible: true });
+    cs.setData(heikinAshi(C));
+  } else if (t === "bars") {
+    cs.applyOptions({ visible: false });
+    state.altSeries = state.chart.addBarSeries({
+      upColor: "#26a69a", downColor: "#ef5350",
+      priceLineVisible: false, lastValueVisible: true,
+    });
+    state.altSeries.setData(C);
+  } else if (t === "line") {
+    cs.applyOptions({ visible: false });
+    state.altSeries = state.chart.addLineSeries({
+      color: "#2962ff", lineWidth: 2,
+      priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+    });
+    state.altSeries.setData(C.map((c) => ({ time: c.time, value: c.close })));
+  } else if (t === "area") {
+    cs.applyOptions({ visible: false });
+    state.altSeries = state.chart.addAreaSeries({
+      lineColor: "#2962ff", lineWidth: 2,
+      topColor: "rgba(41,98,255,0.35)", bottomColor: "rgba(41,98,255,0.00)",
+      priceLineVisible: false, lastValueVisible: true,
+    });
+    state.altSeries.setData(C.map((c) => ({ time: c.time, value: c.close })));
+  } else { // candles
+    cs.applyOptions({ visible: true });
+    cs.setData(C);
+  }
+}
+
+function setChartType(t) {
+  if (!t) t = "candles";
+  state.chartType = t;
+  const sel = $("#ctSel");
+  if (sel) sel.value = t;
+  applyPriceData();
+  scheduleSave();
+}
+
+function renderView() {
+  applyPriceData();
   applyIndicators();
   if (state.drawings) state.drawings.render();
   if (window.TGMethodUI) window.TGMethodUI.onData();
@@ -771,6 +835,7 @@ async function boot() {
     if (s.state) {
       state.symbol = s.state.symbol || "BTCUSDT";
       state.timeframe = s.state.timeframe || "1h";
+      state.chartType = s.state.chartType || "candles";
       state.indicators = s.state.indicators || [];
       if (state.drawings) state.drawings.load(s.state.drawings || []);
       if (window.TGMethodUI && s.state.layout && s.state.layout.methodologies) {
@@ -781,6 +846,12 @@ async function boot() {
 
   $("#symInput").value = state.symbol;
   syncTf();
+  // chart type selector
+  const ctSel = $("#ctSel");
+  if (ctSel) {
+    ctSel.value = state.chartType || "candles";
+    ctSel.onchange = () => setChartType(ctSel.value);
+  }
   await loadData();
 
   // toolbar

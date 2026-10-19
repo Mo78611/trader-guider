@@ -68,6 +68,13 @@
     }
 
     $("runBt").onclick = runBacktest;
+    const tp = $("tradePrev"), tn = $("tradeNext");
+    if (tp) tp.onclick = () => {
+      if (tradePageIdx > 0) { tradePageIdx--; renderTradePage(); }
+    };
+    if (tn) tn.onclick = () => {
+      if (tradePageIdx < tradePages.length - 1) { tradePageIdx++; renderTradePage(); }
+    };
     $("fpAdd").onclick = addFootprint;
     $("fpReload").onclick = loadFootprints;
     $("dnaLoad").onclick = loadDNA;
@@ -78,40 +85,173 @@
   }
 
   /* ---------------- backtest ---------------- */
-  async function runBacktest() {
+  const DEEP_THRESHOLD = 2000; // <= this: server path (backward compat). Above: Web Worker.
+  let btWorker = null;
+  let tradePages = []; // paginated recentTrades (50/page)
+  let tradePageIdx = 0;
+
+  function setProgress(pct, label) {
+    const bar = $("btProgBar"), wrap = $("btProgWrap"), lbl = $("btProgLabel");
+    if (!wrap) return;
+    if (pct == null) { wrap.style.display = "none"; return; }
+    wrap.style.display = "block";
+    bar.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    if (lbl && label != null) lbl.textContent = label;
+  }
+
+  function getRunConfig() {
     const conds = [...selected];
     const logic = document.querySelector('input[name="logic"]:checked').value;
-    if (conds.length < 1) { $("btStatus").textContent = "Pick at least 1 condition."; return; }
-    if (logic === "AND" && conds.length < 2) {
-      $("btStatus").textContent = "AND needs 2 or more conditions. Pick more, or use OR.";
-      return;
-    }
-    if (conds.length > 5) {
-      $("btStatus").textContent = "Max 5 conditions. Untick some.";
-      return;
-    }
-    $("btStatus").textContent = "Running backtest on real history… this can take a few seconds.";
+    const symbol = $("labSymbol").value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const interval = $("labTf").value;
+    const depth = parseInt($("labDepth").value, 10) || 500;
+    return { conds, logic, symbol, interval, depth };
+  }
+
+  function validateRun(conds, logic) {
+    if (conds.length < 1) return "Pick at least 1 condition.";
+    if (logic === "AND" && conds.length < 2) return "AND needs 2 or more conditions. Pick more, or use OR.";
+    if (conds.length > 5) return "Max 5 conditions. Untick some.";
+    return null;
+  }
+
+  async function runBacktest() {
+    const { conds, logic, symbol, interval, depth } = getRunConfig();
+    const err = validateRun(conds, logic);
+    if (err) { $("btStatus").textContent = err; return; }
     $("btResult").style.display = "none";
     $("runBt").disabled = true;
+    setProgress(null);
     try {
-      const r = await api("/api/lab/backtest", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol: $("labSymbol").value.toUpperCase().replace(/[^A-Z0-9]/g, ""),
-          interval: $("labTf").value, logic, conditions: conds,
-          limit: parseInt($("labLook").value, 10),
-        }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "failed");
-      renderBacktest(j, logic);
-      $("btStatus").textContent =
-        `Done in ${(j.ms / 1000).toFixed(1)}s — ${j.bars} bars of ${j.symbol} ${j.interval}.`;
+      if (depth <= DEEP_THRESHOLD) {
+        await runServerBacktest({ conds, logic, symbol, interval, depth });
+      } else {
+        await runDeepBacktest({ conds, logic, symbol, interval, depth });
+      }
     } catch (e) {
-      $("btStatus").textContent = "Backtest failed: " + (e.message === "auth" ? "login again." : "market data unavailable, try later.");
+      const m = String(e.message || e);
+      $("btStatus").textContent = "Backtest failed: " +
+        (m === "auth" ? "login again." : m.slice(0, 160));
     } finally {
       $("runBt").disabled = false;
+      setProgress(null);
     }
+  }
+
+  /* Small runs: original server path, unchanged behavior. */
+  async function runServerBacktest({ conds, logic, symbol, interval, depth }) {
+    $("btStatus").textContent = "Running backtest on real history… this can take a few seconds.";
+    const r = await api("/api/lab/backtest", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, interval, logic, conditions: conds, limit: depth }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "failed");
+    renderBacktest(j, logic);
+    $("btStatus").textContent =
+      `Done in ${(j.ms / 1000).toFixed(1)}s — ${j.bars} bars of ${j.symbol} ${j.interval}.`;
+  }
+
+  /* Deep runs: paginated fetch -> Float64Array -> Web Worker (zero UI freeze). */
+  async function runDeepBacktest({ conds, logic, symbol, interval, depth }) {
+    const cap = Math.min(depth, 300000);
+    $("btStatus").textContent = `Fetching history…`;
+    setProgress(1, "Fetching 0 / " + cap.toLocaleString() + " candles…");
+
+    // 1) page backward through /api/lab/klines-deep (10k/call) with honest progress
+    let all = [];
+    let endTime = null;
+    let deepNote = null;
+    let done = false;
+    while (!done && all.length < cap) {
+      const want = Math.min(10000, cap - all.length);
+      let url = `/api/lab/klines-deep?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=${want}`;
+      if (endTime) url += `&endTime=${endTime}`;
+      const r = await api(url);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "fetch_failed");
+      if (j.note && !deepNote) deepNote = j.note;
+      const page = j.candles || [];
+      // prepend older pages (we walk backward in time)
+      all = page.concat(all);
+      done = !!j.done || page.length === 0;
+      endTime = j.nextEndTime || null;
+      if (!done && !endTime) done = true;
+      setProgress(Math.round((all.length / cap) * 50),
+        `Fetching ${all.length.toLocaleString()} / ${cap.toLocaleString()} candles…`);
+      if (j.deep === false) { done = true; } // forex/stock: only what Yahoo has
+    }
+    if (all.length < 120) throw new Error("not_enough_data: only " + all.length + " bars available");
+    // de-dupe + sort oldest->newest, trim to cap
+    const seen = new Set();
+    const candles = [];
+    for (const c of all) {
+      if (!c || seen.has(c.time)) continue;
+      seen.add(c.time);
+      candles.push(c);
+    }
+    candles.sort((a, b) => a.time - b.time);
+    const final = candles.slice(-cap);
+    const n = final.length;
+
+    // 2) convert to Float64Array columns (transferred, zero-copy)
+    setProgress(52, `Preparing ${n.toLocaleString()} bars…`);
+    const bufs = {};
+    for (const k of ["time", "open", "high", "low", "close", "volume"]) {
+      const a = new Float64Array(n);
+      for (let i = 0; i < n; i++) a[i] = +final[i][k] || 0;
+      bufs[k] = a;
+    }
+    final.length = 0; all.length = 0; // release
+
+    // 3) run the worker
+    setProgress(55, `Backtesting ${n.toLocaleString()} bars in background worker…`);
+    const result = await runWorker({ bufs, n, conditions: conds, logic });
+    result.symbol = symbol; result.interval = interval;
+
+    renderBacktest(result, logic);
+    const secs = (result.ms / 1000).toFixed(1);
+    $("btStatus").textContent =
+      `Done in ${secs}s — ${n.toLocaleString()} bars of ${symbol} ${interval} (worker, UI never froze).` +
+      (deepNote ? " " + deepNote : "") +
+      (n >= 50000 ? " Deep mode evaluates every 100th bar." : "");
+  }
+
+  function runWorker({ bufs, n, conditions, logic }) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (btWorker) { try { btWorker.terminate(); } catch (_e) {} }
+        btWorker = new Worker("/js/backtest-worker.js");
+      } catch (e) { reject(new Error("worker_unavailable: " + e.message)); return; }
+      const id = "bt" + Date.now();
+      const timeout = setTimeout(() => {
+        try { btWorker.terminate(); } catch (_e) {}
+        reject(new Error("worker_timeout"));
+      }, 15 * 60 * 1000);
+      btWorker.onmessage = (e) => {
+        const m = e.data || {};
+        if (m.id !== id) return;
+        if (m.type === "progress") {
+          // worker maps detect->5-70, walk->70-100; shift into 55-100 band
+          const pct = 55 + Math.round((m.pct / 100) * 45);
+          setProgress(pct, `Backtesting… ${m.pct}% (${m.phase})`);
+        } else if (m.type === "done") {
+          clearTimeout(timeout);
+          resolve(m.result);
+        } else if (m.type === "error") {
+          clearTimeout(timeout);
+          reject(new Error(m.message || "worker_failed"));
+        }
+      };
+      btWorker.onerror = (e) => {
+        clearTimeout(timeout);
+        reject(new Error("worker_crashed: " + (e.message || "unknown").slice(0, 120)));
+      };
+      btWorker.postMessage(
+        { type: "run", id, n, buf: bufs, conditions, logic },
+        [bufs.time.buffer, bufs.open.buffer, bufs.high.buffer,
+         bufs.low.buffer, bufs.close.buffer, bufs.volume.buffer]);
+    });
   }
 
   function renderBacktest(j, logic) {
@@ -143,13 +283,29 @@
     $("btConds").innerHTML = j.perCondition.map((c) =>
       `<tr><td>${esc(c.label)}</td><td>${c.fired}</td><td>${c.wins}</td>` +
       `<td>${c.winRate == null ? "—" : c.winRate + "%"}</td></tr>`).join("");
+    // trade list: paginated 50/page when the worker returns recentTrades
+    tradePages = [];
+    const src = (j.recentTrades && j.recentTrades.length ? j.recentTrades : (j.sample || [])).slice();
+    for (let i = 0; i < src.length; i += 50) tradePages.push(src.slice(i, i + 50));
+    tradePageIdx = 0;
+    renderTradePage();
+    const pg = $("tradePager");
+    if (pg) pg.style.display = tradePages.length > 1 ? "flex" : "none";
+  }
+
+  function renderTradePage() {
     const lbl = Object.fromEntries(CONDITIONS);
-    $("btTrades").innerHTML = j.sample.slice().reverse().map((t) =>
+    const page = tradePages[tradePageIdx] || [];
+    $("btTrades").innerHTML = page.map((t) =>
       `<tr><td>${esc(t.time)}</td><td style="color:${t.dir === "buy" ? "var(--green)" : "var(--red)"};font-weight:600">${t.dir.toUpperCase()}</td>` +
       `<td>${Number(t.entry).toLocaleString()}</td>` +
       `<td style="color:${t.r > 0 ? "var(--green)" : "var(--red)"}">${t.r > 0 ? "+" : ""}${t.r}R</td>` +
       `<td style="color:var(--dim)">${t.conds.map((c) => esc(lbl[c] || c)).join(", ")}</td></tr>`
     ).join("") || `<tr><td colspan="5" style="color:var(--dim)">No trades fired.</td></tr>`;
+    const info = $("tradePageInfo");
+    if (info) info.textContent = tradePages.length
+      ? `Page ${tradePageIdx + 1} / ${tradePages.length} — ${tradePages.flat().length} recent trades`
+      : "";
   }
 
   /* ---------------- footprints ---------------- */
