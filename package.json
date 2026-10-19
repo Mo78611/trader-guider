@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.4.1",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "lightweight-charts": "4.2.3",
+    "pg": "^8.13.1"
+  },
+  "description": "Trader Guider — free, localhost-first trading terminal with charting, MT5 bridge, Binance testnet trading and an Analysis Hub.",
+  "license": "MIT",
+  "main": "server.js",
+  "name": "trader-guider",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "postinstall": "mkdir -p public/vendor && cp node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.js public/vendor/ 2>/dev/null || true",
+    "start": "node server.js"
+  },
+  "version": "1.0.0"
+}

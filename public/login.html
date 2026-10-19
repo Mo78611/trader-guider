@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trader Guider — Sign in</title>
+<link rel="stylesheet" href="/css/brand.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="glass auth-card">
+    <div class="brand" style="justify-content:center">
+      <svg class="logo-mark" viewBox="0 0 40 40" fill="none">
+        <rect x="1.5" y="1.5" width="37" height="37" rx="10" stroke="#d4a94e" stroke-width="2" opacity=".7"/>
+        <polyline class="draw" points="6,28 14,20 20,24 28,12" stroke="#d4a94e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline class="draw2" points="28,12 28,17 33,12 28,7" stroke="#26d3a0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle class="pulse-dot" cx="28" cy="12" r="3" fill="#26d3a0"/>
+      </svg>
+      <span class="brand-name">Trader Guider</span>
+    </div>
+    <h1>Welcome back</h1>
+    <p class="sub">Your charts, drawings and workspace are waiting.</p>
+    <div class="auth-err" id="authErr"></div>
+    <div id="authMode" style="font-size:12px;color:var(--dim);margin-bottom:12px">Checking sign-in…</div>
+    <div id="loginForm">
+      <input id="lEmail" type="email" placeholder="Email" autocomplete="email">
+      <input id="lPass" type="password" placeholder="Password" autocomplete="current-password">
+      <button class="btn-gold" id="loginBtn">Sign in →</button>
+      <div class="swap">No account? <a href="#" id="toReg">Create one</a></div>
+    </div>
+    <div id="regForm" style="display:none">
+      <input id="rName" type="text" placeholder="Display name" autocomplete="name">
+      <input id="rEmail" type="email" placeholder="Email" autocomplete="email">
+      <input id="rPass" type="password" placeholder="Password (min 8 chars)" autocomplete="new-password">
+      <button class="btn-gold" id="regBtn">Create account →</button>
+      <div class="swap">Have an account? <a href="#" id="toLogin">Sign in</a></div>
+    </div>
+    <p class="sub" style="margin-top:18px;font-size:12px">Stays signed in for 30 days on this machine — closing the tab never logs you out.</p>
+  </div>
+</div>
+<script src="/js/login.js"></script>
+</body>
+</html>

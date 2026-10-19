@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trader Guider — Pro Charts, Broker Execution, Shared Analysis. One Terminal.</title>
+<meta name="description" content="Trader Guider is a free, localhost-first trading terminal: pro charts, MT5 + Binance execution, persistent workspaces and a community Analysis Hub.">
+<link rel="stylesheet" href="/css/brand.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='10' fill='%230b0e14'/><polyline points='6,28 14,20 20,24 28,12 34,16' fill='none' stroke='%23d4a94e' stroke-width='3' stroke-linecap='round'/></svg>">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand">
+    <svg class="logo-mark" viewBox="0 0 40 40" fill="none">
+      <rect x="1.5" y="1.5" width="37" height="37" rx="10" stroke="#d4a94e" stroke-width="2" opacity=".7"/>
+      <polyline class="draw" points="6,28 14,20 20,24 28,12" stroke="#d4a94e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline class="draw2" points="28,12 28,17 33,12 28,7" stroke="#26d3a0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle class="pulse-dot" cx="28" cy="12" r="3" fill="#26d3a0"/>
+    </svg>
+    <span class="brand-name">Trader Guider</span>
+  </div>
+  <div class="spacer"></div>
+  <a class="nav-link" href="#features">Features</a>
+  <a class="nav-link" href="#founder">Founder</a>
+  <a class="nav-link" href="/hub">Analysis Hub</a>
+  <a class="btn-gold" style="padding:10px 22px;font-size:14px" href="/terminal">Launch Terminal →</a>
+</nav>
+
+<header class="hero">
+  <canvas id="heroCanvas"></canvas>
+  <div class="hero-inner">
+    <span class="hero-kicker">100% free · runs on your machine</span>
+    <h1>Pro charts. Broker execution.<br><span class="grad">One terminal.</span></h1>
+    <p class="lead">Stop switching between ten tools. Trader Guider puts TradingView-grade
+      charts, one-click MT5 &amp; Binance execution, auto-saving workspaces and a
+      community Analysis Hub in a single dark, fast terminal.</p>
+    <div class="hero-cta">
+      <a class="btn-gold" href="/terminal">Launch Terminal →</a>
+      <a class="btn-ghost" href="/hub">Explore Analysis Hub</a>
+    </div>
+    <div class="hero-note">No signup walls · No paid APIs · Your keys never leave your machine</div>
+  </div>
+</header>
+
+<section class="section" id="features">
+  <h2 class="reveal">Everything a desk needs</h2>
+  <p class="sub reveal">Built for crypto, forex and gold traders who want depth without the monthly bill.</p>
+  <div class="feat-grid">
+    <div class="glass feat reveal">
+      <div class="icon">📈</div>
+      <h3>Pro charting engine</h3>
+      <p>TradingView Lightweight Charts with 8 timeframes, unlimited indicators —
+        SMA, EMA, RSI, MACD, Bollinger Bands, ATR — plus trendlines, Fibonacci
+        and text tools, all in a crisp dark pro-desk theme.</p>
+    </div>
+    <div class="glass feat reveal">
+      <div class="icon">⚡</div>
+      <h3>One-click execution</h3>
+      <p>Buy/Sell straight from the chart with broker-side SL/TP. MT5 bridge for
+        your broker account, Binance spot &amp; futures on the free testnet.
+        Dry-run mode is on by default — nothing moves until you say so.</p>
+    </div>
+    <div class="glass feat reveal">
+      <div class="icon">💾</div>
+      <h3>Workspaces that remember</h3>
+      <p>Every symbol, indicator and drawing auto-saves to your local database.
+        Close the laptop, come back tomorrow — your chart is exactly as you left it.</p>
+    </div>
+    <div class="glass feat reveal">
+      <div class="icon">🌍</div>
+      <h3>Analysis Hub</h3>
+      <p>Snapshot your chart, write the breakdown, share it with the community —
+        or load someone else's chart state straight into your own terminal.</p>
+    </div>
+    <div class="glass feat reveal">
+      <div class="icon">🔐</div>
+      <h3>Your keys, your machine</h3>
+      <p>API keys are AES-encrypted in a local SQLite file. Persistent 30-day
+        login. No cloud account needed to run the full terminal.</p>
+    </div>
+    <div class="glass feat reveal">
+      <div class="icon">🆓</div>
+      <h3>Free stack, forever</h3>
+      <p>Node.js + SQLite + open-source charts. Optional free-tier hosting
+        (Vercel, Render, Supabase) documented for later — nothing paid, ever required.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="stats">
+  <div class="stats">
+    <div class="glass stat reveal"><div class="num" data-count="8">0</div><div class="lbl">Timeframes</div></div>
+    <div class="glass stat reveal"><div class="num" data-count="6">0</div><div class="lbl">Built-in indicators</div></div>
+    <div class="glass stat reveal"><div class="num" data-count="4">0</div><div class="lbl">Drawing tools</div></div>
+    <div class="glass stat reveal"><div class="num" data-count="100">0</div><div class="lbl">% free stack</div></div>
+  </div>
+</section>
+
+<section class="section" id="founder">
+  <div class="founder">
+    <div class="glass portrait-card reveal">
+      <img src="/assets/founder.jpg" alt="Founder of Trader Guider">
+      <div class="cap">Founder, Trader Guider</div>
+    </div>
+    <div class="founder-text reveal">
+      <h2>Built by a trader, for traders</h2>
+      <p>Built by a crypto &amp; forex trader who knows the pain of switching
+        between ten tools — charts here, the broker there, notes somewhere else,
+        and nothing remembers your levels when you come back.</p>
+      <p>Trader Guider puts pro charts, MT5 and Binance execution, and a shared
+        Analysis Hub in one terminal. Focused on crypto, forex and gold. Free to
+        run on your own machine — your keys stay with you, always.</p>
+      <div class="tags">
+        <span class="tag">Crypto</span><span class="tag">Forex</span>
+        <span class="tag">Gold / XAUUSD</span><span class="tag">MT5</span><span class="tag">Binance</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="text-align:center">
+  <h2 class="reveal">Your desk is waiting</h2>
+  <p class="sub reveal">Create a free local account and your first chart is seconds away.</p>
+  <div class="hero-cta reveal">
+    <a class="btn-gold" href="/terminal">Launch Terminal →</a>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="brand">
+    <svg class="logo-mark" viewBox="0 0 40 40" fill="none" style="width:30px;height:30px">
+      <rect x="1.5" y="1.5" width="37" height="37" rx="10" stroke="#d4a94e" stroke-width="2" opacity=".7"/>
+      <polyline points="6,28 14,20 20,24 28,12" stroke="#d4a94e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="28" cy="12" r="3" fill="#26d3a0"/>
+    </svg>
+    <span class="brand-name" style="font-size:16px">Trader Guider</span>
+  </div>
+  Free &amp; open local-first trading terminal · Demo/testnet defaults · Trade responsibly
+</footer>
+
+<script src="/js/landing.js"></script>
+</body>
+</html>
