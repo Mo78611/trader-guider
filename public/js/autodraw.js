@@ -575,6 +575,7 @@ window.TGAutoDraw = (function () {
 
   function ensureOverlay(container) {
     if (OV.el) return OV.el;
+    if (!container || !container.appendChild) return null;
     const el = document.createElement("div");
     el.id = "adCommentary";
     el.style.cssText = [
@@ -648,6 +649,7 @@ window.TGAutoDraw = (function () {
     if (!analysis) return;
     OV.chart = chart; OV.series = series;
     const el = ensureOverlay(container);
+    if (!el) return;
     const key = (analysis.breakouts[0] ? "b" + analysis.breakouts[0].barIdx + analysis.breakouts[0].dir : "") +
                 "|t" + (analysis.taps[0] ? analysis.taps[0].barIdx : "") +
                 "|p" + (analysis.patterns[0] ? analysis.patterns[0].label + analysis.patterns[0].endIdx : "");

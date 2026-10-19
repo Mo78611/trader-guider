@@ -158,15 +158,21 @@ window.TGMethodUI = (function () {
     return {
       series: [], markers: [],
       line(points, opts) {
+        // NaN/Infinity guard: Lightweight Charts throws on bad data — drop bad points
+        const clean = (points || []).filter((p) => p && isFinite(p.time) && isFinite(p.price));
+        if (clean.length < 1) return null;
         const s = S.chart.addLineSeries(Object.assign({
           color: "#d4a94e", lineWidth: 1, priceLineVisible: false,
           lastValueVisible: false, crosshairMarkerVisible: false,
         }, opts || {}));
-        s.setData(points.map((p) => ({ time: p.time, value: p.price })));
+        s.setData(clean.map((p) => ({ time: p.time, value: p.price })));
         this.series.push(s);
         return s;
       },
-      marker(m) { this.markers.push(m); },
+      marker(m) {
+        if (!m || !isFinite(m.time)) return;
+        this.markers.push(m);
+      },
     };
   }
 

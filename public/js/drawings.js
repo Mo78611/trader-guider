@@ -29,11 +29,13 @@ window.TGDrawings = (function () {
     }
 
     function addLine(points, opts) {
+      const clean = (points || []).filter((p) => p && isFinite(p.time) && isFinite(p.price));
+      if (clean.length < 1) return null;
       const s = S.chart.addLineSeries(Object.assign({
         color: "#d4a94e", lineWidth: 2, priceLineVisible: false,
         lastValueVisible: false, crosshairMarkerVisible: false,
       }, opts || {}));
-      s.setData(points.map((p) => ({ time: p.time, value: p.price })));
+      s.setData(clean.map((p) => ({ time: p.time, value: p.price })));
       return s;
     }
 
@@ -120,9 +122,9 @@ window.TGDrawings = (function () {
               color: "#d4a94e", shape: "text", text: "what-if: " + verdict });
           }
         }
-        if (made.length) S.seriesById.set(d.id, made);
+        if (made.length) S.seriesById.set(d.id, made.filter(Boolean));
       }
-      if (markers.length) { try { S.candleSeries.setMarkers(markers); } catch (_e) {} }
+      if (markers.length) { try { S.candleSeries.setMarkers(markers.filter((m) => m && isFinite(m.time))); } catch (_e) {} }
     }
 
     function uid() { return "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }

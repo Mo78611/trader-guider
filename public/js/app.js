@@ -78,8 +78,9 @@ function heikinAshi(candles) {
   let haO = 0, haC = 0;
   for (let i = 0; i < candles.length; i++) {
     const c = candles[i];
+    if (!c || !isFinite(c.open) || !isFinite(c.high) || !isFinite(c.low) || !isFinite(c.close) || !isFinite(c.time)) continue;
     haC = (c.open + c.high + c.low + c.close) / 4;
-    haO = i === 0 ? (c.open + c.close) / 2 : (haO + haC) / 2;
+    haO = out.length === 0 ? (c.open + c.close) / 2 : (haO + haC) / 2;
     out.push({ time: c.time,
       open: haO, high: Math.max(c.high, haO, haC),
       low: Math.min(c.low, haO, haC), close: haC });
@@ -87,10 +88,15 @@ function heikinAshi(candles) {
   return out;
 }
 
+function cleanCandles(C) {
+  return (C || []).filter((c) => c && isFinite(c.time) && isFinite(c.open) &&
+    isFinite(c.high) && isFinite(c.low) && isFinite(c.close));
+}
+
 function applyPriceData() {
-  const C = viewCandles();
+  const C = cleanCandles(viewCandles());
   const cs = state.candleSeries;
-  if (!cs) return;
+  if (!cs || !C.length) return;
   // remove old alt series
   if (state.altSeries) { try { state.chart.removeSeries(state.altSeries); } catch (_e) {} state.altSeries = null; }
   const t = state.chartType || "candles";

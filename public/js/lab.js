@@ -315,7 +315,7 @@
       const sym = $("fpSymbol").value.toUpperCase().replace(/[^A-Z0-9]/g, "") || "BTCUSDT";
       const tf = $("fpTf").value;
       // grab the live price so the footprint has a real anchor
-      const k = await api(`/api/klines/${encodeURIComponent(sym)}/${tf}/2`).then((r) => r.json());
+      const k = await api(`/api/market/klines?symbol=${encodeURIComponent(sym)}&interval=${encodeURIComponent(tf)}&limit=2`).then((r) => r.json());
       const kl = (k.candles || k.klines || []);
       const last = kl.length ? kl[kl.length - 1] : null;
       const price = last ? last.close : 0;
