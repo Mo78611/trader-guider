@@ -11,7 +11,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 a{color:var(--accent);text-decoration:none}
 
 /* top bar */
-.topbar{height:52px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--border);position:relative;z-index:100}
+.topbar{min-height:52px;height:auto;display:flex;align-items:center;gap:12px;padding:6px 14px;background:var(--panel);border-bottom:1px solid var(--border);position:relative;z-index:100;flex-wrap:wrap}
 .logo{font-weight:800;font-size:18px;letter-spacing:.5px;color:var(--text)}
 .logo small{color:var(--dim);font-weight:400;font-size:12px;margin-left:6px}
 .topbar .spacer{flex:1}
